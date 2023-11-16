@@ -69,4 +69,4 @@
 - scripts
 - keyboard
 - mouse
-- behave window action command ...
+- behave window action command
