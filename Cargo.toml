@@ -1,0 +1,12 @@
+[package]
+name = "kdotool"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dbus = "0.9"
+tempfile = "3.8"
+anyhow = "1.0"
+chrono = "0.4"
