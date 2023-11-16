@@ -77,14 +77,40 @@ const STEP_SEARCH : &str = r#"
     }
 "#;
 
-const STEP_ACTION : &str = r#"
+const STEP_ACTION_WINDOW_ID : &str = r#"
     output_debug("STEP {{{step_name}}}")
-    if (window_stack.length == 0) {
-        output_error("{{{step_name}}}: No window to act on");
-        return;
+    {{#if kde5}}
+    t = workspace.clientList();
+    {{else}}
+    t = workspace.windowList();
+    {{/if}}
+    for (var i=0; i<t.length; i++) {
+        var w = t[i];
+        if (w.internalId == "{{{window_id}}}") {
+            {{{action}}}
+            break;
+        }
     }
-    var w = window_stack[0];
-    {{{action}}}
+"#;
+
+const STEP_ACTION_STACK_ITEM : &str = r#"
+    output_debug("STEP {{{step_name}}}")
+    if (window_stack.length > 0) {
+        if ({{{item_index}}} > window_stack.length || {{{item_index}}} < 1) {
+            output_error("Invalid window stack selection '{{{item_index}}}' (out of range)");
+        } else {
+            var w = window_stack[{{{item_index}}}-1];
+            {{{action}}}
+        }
+    }
+"#;
+
+const STEP_ACTION_STACK_ALL : &str = r#"
+    output_debug("STEP {{{step_name}}}")
+    for (var i=0; i<window_stack.length; i++) {
+        var w = window_stack[i];
+        {{{action}}}
+    }
 "#;
 
 const STEP_OUTPUT : &str = r#"
@@ -117,14 +143,14 @@ fn generate_script(marker: &str, args: &[String]) -> anyhow::Result<String> {
     let mut last_step_is_query = false;
 
     while arg_index < args.len() {
-        let arg = &args[arg_index];
+        let arg0 = &args[arg_index];
         arg_index += 1;
 
-        if arg == "getactivewindow" {
+        if arg0 == "getactivewindow" {
             result.push_str(&reg.render_template(STEP_GETACTIVEWINDOW, &context)?);
             last_step_is_query = true;
 
-        } else if arg == "search" {
+        } else if arg0 == "search" {
             if arg_index >= args.len() {
                 return Err(anyhow::anyhow!("Missing argument for search"));
             }
@@ -133,13 +159,29 @@ fn generate_script(marker: &str, args: &[String]) -> anyhow::Result<String> {
             last_step_is_query = true;
             arg_index += 1;
 
-        } else if ACTIONS.contains_key(arg.as_str()) {
-                let action = ACTIONS.get(arg.as_str()).unwrap();
-                result.push_str(&reg.render_template(STEP_ACTION, &json!({"step_name": arg, "action": action}))?);
-                last_step_is_query = false;
+        } else if ACTIONS.contains_key(arg0.as_str()) {
+            let arg1;
+            if arg_index >= args.len() || char::is_alphabetic(args[arg_index].chars().next().unwrap()) {
+                arg1 = "%1";
+            } else {
+                arg1 = args[arg_index].as_str();
+                arg_index += 1;
+            }
+
+            let action = &reg.render_template(ACTIONS.get(arg0.as_str()).unwrap(), &context)?;
+            if arg1 == "%@" {
+                result.push_str(&reg.render_template(STEP_ACTION_STACK_ALL, &json!({"step_name": arg0, "action": action}))?);
+            } else if arg1.starts_with("%") {
+                let index = arg1[1..].parse::<i32>()?;
+                result.push_str(&reg.render_template(STEP_ACTION_STACK_ITEM, &json!({"step_name": arg0, "action": action, "item_index": index}))?);
+            } else {
+                result.push_str(&reg.render_template(STEP_ACTION_WINDOW_ID, &json!({"step_name": arg0, "action": action, "window_id": arg1}))?);
+            }
+
+            last_step_is_query = false;
 
         } else {
-            return Err(anyhow::anyhow!("Unknown command: {}", arg));
+            return Err(anyhow::anyhow!("Unknown command: {}", arg0));
         }
     }
 
