@@ -33,7 +33,7 @@ const SCRIPT_FOOTER: &str = r#"
 }
 
 {{#if shortcut}}
-registerShortcut("{{{name}}}", "{{{name}}}", "{{{shortcut}}}", run);
+registerShortcut("{{#if name}}{{{name}}}{{else}}{{{marker}}}{{/if}}", "{{{cmdline}}}", "{{{shortcut}}}", run);
 {{else}}
 run();
 {{/if}}
@@ -143,6 +143,7 @@ static ACTIONS: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 struct Context {
+    cmdline: String,
     debug: bool,
     dry_run: bool,
     kde5: bool,
@@ -175,6 +176,7 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
     let mut result = String::new();
     let reg = Handlebars::new();
     let render_context = json!({
+        "cmdline": context.cmdline,
         "marker": context.marker,
         "kde5": context.kde5,
         "debug": context.debug,
@@ -399,6 +401,7 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
 
 fn main() -> anyhow::Result<()> {
     let mut context = Context {
+        cmdline: std::env::args().collect::<Vec<String>>().join(" "),
         debug: false,
         dry_run: false,
         kde5: false,
@@ -483,11 +486,10 @@ fn main() -> anyhow::Result<()> {
     let conn = Connection::new_session()?;
     let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
     let script_id : i32;
-    if context.name.is_empty() {
-        (script_id,) = kwin_proxy.method_call("org.kde.kwin.Scripting", "loadScript", (script_file_path.to_str().unwrap(),))?;
-    } else {
-        (script_id,) = kwin_proxy.method_call("org.kde.kwin.Scripting", "loadScript", (script_file_path.to_str().unwrap(), context.name))?;
-    }
+    (script_id,) = kwin_proxy.method_call(
+        "org.kde.kwin.Scripting",
+        "loadScript",
+        (script_file_path.to_str().unwrap(), if context.name.is_empty() {context.marker} else {context.name}))?;
     log::debug!("Script ID: {}", script_id);
 
     log::debug!("===== Run script =====");
