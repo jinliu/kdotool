@@ -69,8 +69,7 @@ Options not in xdotool:
     - --usehints
     - --sync
 - windowmove
-  - MISSING:
-    - --sync
+  - MISSING: --sync
 - getwindowclassname
 - windowminimize
   - MISSING: --sync
