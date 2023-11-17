@@ -35,6 +35,13 @@ Not in xdotool:
 
 - --dry-run Just print the generated KWin script. Don't run it.
 - --debug Print debug messages.
+- --shortcut _shortcut_ Specify a shortcut to run the generated KWin script.
+  The shortcut must be in the format of `modifier+key`, e.g. `Alt+Shift+X`.
+  The shortcut will be registered in KWin. The script is not run immediately.
+  You must press the shortcut to run it.
+  - --name _name_ Specify a name for the shortcut, So you can remove it
+  later with `--remove`. This option is only valid with `--shortcut`.
+- --remove _name_ Remove a previously registered shortcut.
 
 ## Supported xdotool Commands
 

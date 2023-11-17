@@ -32,7 +32,11 @@ function run() {
 const SCRIPT_FOOTER: &str = r#"
 }
 
+{{#if shortcut}}
+registerShortcut("{{{name}}}", "{{{name}}}", "{{{shortcut}}}", run);
+{{else}}
 run();
+{{/if}}
 
 print("{{{marker}}} FINISH");
 "#;
@@ -136,6 +140,9 @@ struct Context {
     dry_run: bool,
     kde5: bool,
     marker: String,
+    name: String,
+    shortcut: String,
+    remove: bool,
 }
 
 fn next_arg_is_option(cmdline : &mut Parser) -> bool {
@@ -155,7 +162,9 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
     let render_context = json!({
         "marker": context.marker,
         "kde5": context.kde5,
-        "debug": context.debug
+        "debug": context.debug,
+        "name": context.name,
+        "shortcut": context.shortcut,
     });
 
     result.push_str(&reg.render_template(SCRIPT_HEADER, &render_context)?);
@@ -174,7 +183,14 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                         match arg {
                             Value(val) => {
                                 let search_term : String = val.to_string_lossy().into();
-                                result.push_str(&reg.render_template(STEP_SEARCH, &json!({"search_term": search_term, "match_any": false}))?);
+                                result.push_str(
+                                    &reg.render_template(STEP_SEARCH, 
+                                    &json!({
+                                        "kde5": context.kde5,
+                                        "debug": context.debug,
+                                        "search_term": search_term,
+                                        "match_any": false,
+                                    }))?);
                                 last_step_is_query = true;
                             },
                             _ => {
@@ -184,7 +200,9 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                     },
 
                     "getactivewindow" => {
-                        result.push_str(&reg.render_template(STEP_GETACTIVEWINDOW, &render_context)?);
+                        result.push_str(
+                            &reg.render_template(STEP_GETACTIVEWINDOW, 
+                            &render_context)?);
                         last_step_is_query = true;
                     },
 
@@ -203,14 +221,39 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                 }
                             }
 
-                            let action = &reg.render_template(ACTIONS.get(command.as_ref()).unwrap(), &render_context)?;
+                            let action = &reg.render_template(
+                                ACTIONS.get(command.as_ref()).unwrap(),
+                                &render_context)?;
                             if arg1 == "%@" {
-                                result.push_str(&reg.render_template(STEP_ACTION_ON_STACK_ALL, &json!({"step_name": command, "action": action}))?);
+                                result.push_str(&reg.render_template(
+                                    STEP_ACTION_ON_STACK_ALL,
+                                    &json!({
+                                        "kde5": context.kde5,
+                                        "debug": context.debug,
+                                        "step_name": command,
+                                        "action": action,
+                                    }))?);
                             } else if arg1.starts_with("%") {
                                 let index = arg1[1..].parse::<i32>()?;
-                                result.push_str(&reg.render_template(STEP_ACTION_ON_STACK_ITEM, &json!({"step_name": command, "action": action, "item_index": index}))?);
+                                result.push_str(&reg.render_template(
+                                    STEP_ACTION_ON_STACK_ITEM,
+                                    &json!({
+                                        "kde5": context.kde5,
+                                        "debug": context.debug,
+                                        "step_name": command,
+                                        "action": action,
+                                        "item_index": index,
+                                    }))?);
                             } else {
-                                result.push_str(&reg.render_template(STEP_ACTION_ON_WINDOW_ID, &json!({"step_name": command, "action": action, "window_id": arg1}))?);
+                                result.push_str(&reg.render_template(
+                                    STEP_ACTION_ON_WINDOW_ID,
+                                    &json!({
+                                        "kde5": context.kde5,
+                                        "debug": context.debug,
+                                        "step_name": command,
+                                        "action": action,
+                                        "window_id": arg1
+                                    }))?);
                             }
 
                             last_step_is_query = false;
@@ -227,10 +270,14 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
     }
 
     if last_step_is_query {
-        result.push_str(&reg.render_template(STEP_LAST_OUTPUT, &render_context)?);
+        result.push_str(&reg.render_template(
+            STEP_LAST_OUTPUT,
+            &render_context)?);
     }
 
-    result.push_str(&reg.render_template(SCRIPT_FOOTER, &render_context)?);
+    result.push_str(&reg.render_template(
+        SCRIPT_FOOTER,
+        &render_context)?);
 
     Ok(result)
 }
@@ -241,6 +288,9 @@ fn main() -> anyhow::Result<()> {
         dry_run: false,
         kde5: false,
         marker: String::new(),
+        shortcut: String::new(),
+        name: String::new(),
+        remove: false,
     };
     let mut cmdline = Parser::from_env();
 
@@ -273,6 +323,16 @@ fn main() -> anyhow::Result<()> {
             Short('n') | Long("dry-run") => {
                 context.dry_run = true;
             },
+            Long("shortcut") => {
+                context.shortcut = cmdline.value()?.to_string_lossy().into();
+            },
+            Long("name") => {
+                context.name = cmdline.value()?.to_string_lossy().into();
+            },
+            Long("remove") => {
+                context.remove = true;
+                context.name = cmdline.value()?.to_string_lossy().into();
+            },
             _ => {
                 return Err(arg.unexpected().into());
             }
@@ -282,6 +342,13 @@ fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_default_env()
         .filter(Some("kdotool"), if context.debug { log::LevelFilter::Debug } else { log::LevelFilter::Info })
         .init();
+
+    if context.remove {
+        let conn = Connection::new_session()?;
+        let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
+        kwin_proxy.method_call("org.kde.kwin.Scripting", "unloadScript", (context.name,))?;
+        return Ok(());
+    }
 
     log::debug!("===== Generate KWin script =====");
     let mut script_file = NamedTempFile::with_prefix("kdotool-")?;
@@ -301,14 +368,21 @@ fn main() -> anyhow::Result<()> {
     log::debug!("===== Load script into KWin =====");
     let conn = Connection::new_session()?;
     let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
-    let (script_id,): (i32,) = kwin_proxy.method_call("org.kde.kwin.Scripting", "loadScript", (script_file_path.to_str().unwrap(),))?;
+    let script_id : i32;
+    if context.name.is_empty() {
+        (script_id,) = kwin_proxy.method_call("org.kde.kwin.Scripting", "loadScript", (script_file_path.to_str().unwrap(),))?;
+    } else {
+        (script_id,) = kwin_proxy.method_call("org.kde.kwin.Scripting", "loadScript", (script_file_path.to_str().unwrap(), context.name))?;
+    }
     log::debug!("Script ID: {}", script_id);
 
     log::debug!("===== Run script =====");
     let script_proxy = conn.with_proxy("org.kde.KWin", format!("/Scripting/Script{}", script_id), Duration::from_millis(5000));
     let start_time = chrono::Local::now();
     script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
-    script_proxy.method_call("org.kde.kwin.Script", "stop", ())?;
+    if context.shortcut.is_empty() {
+        script_proxy.method_call("org.kde.kwin.Script", "stop", ())?;
+    }
 
     let journal = Command::new("journalctl")
         .arg(format!("--since={}", start_time.format("%Y-%m-%d %H:%M:%S")))
@@ -342,9 +416,12 @@ fn help() {
     println!("Usage: kdotool [options] <command> [args...]");
     println!();
     println!("Options:");
-    println!("  -h, --help       Show this help");
-    println!("  -d, --debug      Enable debug output");
-    println!("  -n, --dry-run    Don't actually run the script. Just print it to stdout.");
+    println!("  -h, --help                 Show this help");
+    println!("  -d, --debug                Enable debug output");
+    println!("  -n, --dry-run              Don't actually run the script. Just print it to stdout.");
+    println!("  --shortcut <shortcut>      Register a shortcut to run the script.");
+    println!("    --name <name>            Set a name for the shortcut, so you can remove it later.");
+    println!("  --remove <name>            Remove a previously registered shortcut.");
     println!();
     println!("Commands:");
     println!("  search <term>");
