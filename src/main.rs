@@ -150,8 +150,6 @@ fn next_arg_is_option(cmdline : &mut Parser) -> bool {
 }
 
 fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<String> {
-    use lexopt::prelude::*;
-
     let mut result = String::new();
     let reg = Handlebars::new();
     let render_context = json!({
@@ -165,6 +163,7 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
     let mut last_step_is_query = false;
 
     while let Some(arg) = cmdline.next()? {
+        use lexopt::prelude::*;
         match arg {
             Value(val) => {
                 let command : String = val.to_string_lossy().into();
@@ -237,8 +236,6 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
 }
 
 fn main() -> anyhow::Result<()> {
-    use lexopt::prelude::*;
-
     let mut context = Context {
         debug: false,
         dry_run: false,
@@ -263,6 +260,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     while next_arg_is_option(&mut cmdline) {
+        use lexopt::prelude::*;
         let arg = cmdline.next()?.unwrap();
         match arg {
             Short('h') | Long("help") => {
@@ -351,19 +349,18 @@ fn help() {
     println!("Commands:");
     println!("  search <term>");
     println!("  getactivewindow");
-    println!("  getwindowname <window>");
-    println!("  getwindowclassname <window>");
-    println!("  getwindowgeometry <window>");
-    println!("  getwindowpid <window>");
-    println!("  windowminimize <window>");
-    println!("  windowraise <window>");
-    println!("  windowclose <window>");
-    println!("  windowkill <window>");
-    println!("  windowactivate <window>");
+    {
+        let mut actions : Vec<&&str> = ACTIONS.keys().collect();
+        actions.sort();
+
+        for i in actions {
+            println!("  {} <window>", i);
+        }
+    }
     println!();
     println!("Window can be specified as:");
     println!("  %1 - the first window in the stack (default)");
-    println!("  %2 - the second window in the stack");
+    println!("  %N - the Nth window in the stack");
     println!("  %@ - all windows in the stack");
     println!("  <window id> - the window with the given ID");
 }
