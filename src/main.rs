@@ -132,7 +132,6 @@ static ACTIONS: phf::Map<&'static str, &'static str> = phf_map! {
 };
 
 struct Context {
-    cmdline: Box<Parser>,
     debug: bool,
     dry_run: bool,
     kde5: bool,
@@ -150,7 +149,7 @@ fn next_arg_is_option(cmdline : &mut Parser) -> bool {
     }
 }
 
-fn generate_script(context : &mut Context) -> anyhow::Result<String> {
+fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<String> {
     use lexopt::prelude::*;
 
     let mut result = String::new();
@@ -165,14 +164,14 @@ fn generate_script(context : &mut Context) -> anyhow::Result<String> {
 
     let mut last_step_is_query = false;
 
-    while let Some(arg) = context.cmdline.next()? {
+    while let Some(arg) = cmdline.next()? {
         match arg {
             Value(val) => {
                 let command : String = val.to_string_lossy().into();
                 match command.as_ref() {
 
                     "search" => {
-                        let arg = context.cmdline.next()?.unwrap();
+                        let arg = cmdline.next()?.unwrap();
                         match arg {
                             Value(val) => {
                                 let search_term : String = val.to_string_lossy().into();
@@ -193,8 +192,8 @@ fn generate_script(context : &mut Context) -> anyhow::Result<String> {
                     _ => {
                         if ACTIONS.contains_key(command.as_ref()) {
                             let mut arg1 = "%1".to_string();
-                            while next_arg_is_option(&mut context.cmdline) {
-                                let arg = context.cmdline.next()?.unwrap();
+                            while next_arg_is_option(cmdline) {
+                                let arg = cmdline.next()?.unwrap();
                                 match arg {
                                     Value(val) => {
                                         arg1 = val.to_string_lossy().into();
@@ -240,15 +239,13 @@ fn generate_script(context : &mut Context) -> anyhow::Result<String> {
 fn main() -> anyhow::Result<()> {
     use lexopt::prelude::*;
 
-    env_logger::init();
-
     let mut context = Context {
-        cmdline: Box::new(Parser::from_env()),
         debug: false,
         dry_run: false,
         kde5: false,
         marker: String::new(),
     };
+    let mut cmdline = Parser::from_env();
 
     match std::env::var("KDE_SESSION_VERSION") {
         Ok(version) => {
@@ -260,13 +257,13 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Parse global options
-    if context.cmdline.try_raw_args().unwrap().peek().is_none() {
+    if cmdline.try_raw_args().unwrap().peek().is_none() {
         help();
         return Ok(());
     }
 
-    while next_arg_is_option(&mut context.cmdline) {
-        let arg = context.cmdline.next()?.unwrap();
+    while next_arg_is_option(&mut cmdline) {
+        let arg = cmdline.next()?.unwrap();
         match arg {
             Short('h') | Long("help") => {
                 help();
@@ -284,11 +281,15 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    env_logger::Builder::from_default_env()
+        .filter(Some("kdotool"), if context.debug { log::LevelFilter::Debug } else { log::LevelFilter::Info })
+        .init();
+
     log::debug!("===== Generate KWin script =====");
     let mut script_file = NamedTempFile::with_prefix("kdotool-")?;
     context.marker = script_file.path().file_name().unwrap().to_str().unwrap().to_string();
 
-    let script_contents = generate_script(&mut context)?;
+    let script_contents = generate_script(&context, &mut cmdline)?;
 
     log::debug!("Script:{}", script_contents);
     script_file.write_all(script_contents.as_bytes())?;
