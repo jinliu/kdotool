@@ -77,7 +77,6 @@ Options not in xdotool:
 - windowactivate
   - MISSING: --sync
 - windowclose
-- windowkill
 
 ## Won't support
 
@@ -109,6 +108,7 @@ X11-specific:
 - windowmap
 - windowlower
 - windowquit
+- windowkill
 - windowunmap
 - set_desktop_viewport
 - get_desktop_viewport

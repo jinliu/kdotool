@@ -137,8 +137,7 @@ static ACTIONS: phf::Map<&'static str, &'static str> = phf_map! {
     "windowminimize" => "w.minimized = true;",
     "windowraise" => "workspace.raiseWindow(w);",
     "windowclose" => "w.closeWindow();",
-    "windowkill" => "w.killWindow();",
-    "windowactivate" => "workspace.setActiveWindow(w);",
+    "windowactivate" => "workspace.activeWindow = w;",
     "windowsize" => r#"
             let q = Object.assign({}, w.frameGeometry);
             {{#if x}}q.width={{{x}}};{{/if}}
