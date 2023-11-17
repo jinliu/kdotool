@@ -66,10 +66,13 @@ Options not in xdotool:
     - desktop number
 - windowsize
   - MISSING:
+    - size in percentage
     - --usehints
     - --sync
 - windowmove
-  - MISSING: --sync
+  - MISSING:
+    - size in percentage
+    - --sync
 - getwindowclassname
 - windowminimize
   - MISSING: --sync
