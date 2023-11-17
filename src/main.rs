@@ -491,7 +491,11 @@ fn main() -> anyhow::Result<()> {
     log::debug!("Script ID: {}", script_id);
 
     log::debug!("===== Run script =====");
-    let script_proxy = conn.with_proxy("org.kde.KWin", format!("/Scripting/Script{}", script_id), Duration::from_millis(5000));
+    let script_proxy = if context.kde5 {
+        conn.with_proxy("org.kde.KWin", format!("/{}", script_id), Duration::from_millis(5000))
+    } else {
+        conn.with_proxy("org.kde.KWin", format!("/Scripting/Script{}", script_id), Duration::from_millis(5000))
+    };
     let start_time = chrono::Local::now();
     script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
     if context.shortcut.is_empty() {
