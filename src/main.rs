@@ -295,6 +295,11 @@ fn main() -> anyhow::Result<()> {
     script_file.write_all(script_contents.as_bytes())?;
     let script_file_path = script_file.into_temp_path();
 
+    if context.dry_run {
+        println!("{}", script_contents.trim());
+        return Ok(());
+    }
+
     log::debug!("===== Load script into KWin =====");
     let conn = Connection::new_session()?;
     let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
