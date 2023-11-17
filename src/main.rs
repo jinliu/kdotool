@@ -6,7 +6,7 @@ use dbus::blocking::Connection;
 use tempfile::NamedTempFile;
 use handlebars::Handlebars;
 use serde_json::json;
-use lexopt::Parser;
+use lexopt::{Parser, Arg};
 
 const SCRIPT_HEADER: &str = r#"
 print("{{{marker}}} START");
@@ -139,6 +139,16 @@ static ACTIONS: phf::Map<&'static str, &'static str> = phf_map! {
     "windowclose" => "w.closeWindow();",
     "windowkill" => "w.killWindow();",
     "windowactivate" => "workspace.setActiveWindow(w);",
+    "windowsize" => r#"
+            let q = Object.assign({}, w.frameGeometry);
+            {{#if x}}q.width={{{x}}};{{/if}}
+            {{#if y}}q.height={{{y}}};{{/if}}
+            w.frameGeometry = q;
+"#,
+    "windowmove" => r#"
+            {{#if x}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
+            {{#if y}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
+"#,
 };
 
 struct Context {
@@ -151,15 +161,23 @@ struct Context {
     remove: bool,
 }
 
-fn next_arg_is_command(cmdline : &mut Parser) -> bool {
-    match cmdline.try_raw_args().unwrap().peek() {
-        Some(arg) => {
-            return char::is_alphabetic(arg.to_string_lossy().chars().next().unwrap());
-        },
-        None => {
-            return true;
+fn try_parse_option(cmdline : &mut Parser) -> Option<Arg> {
+    let s : String = cmdline.try_raw_args()?.peek()?.to_str().unwrap().into();
+    if s.starts_with("-") {
+        let next_char = s.chars().nth(1).unwrap();
+        if char::is_alphabetic(next_char) || next_char == '-' {
+            return Some(cmdline.next().unwrap().unwrap());
         }
     }
+    return None;
+}
+
+fn try_parse_window_id(cmdline : &mut Parser) -> Option<String> {
+    let s : String = cmdline.try_raw_args()?.peek()?.to_str().unwrap().into();
+    if s.starts_with("%") || s.starts_with("{") {
+        return Some(cmdline.value().unwrap().to_str().unwrap().into());
+    }
+    return None;
 }
 
 fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<String> {
@@ -181,7 +199,7 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
         use lexopt::prelude::*;
         match arg {
             Value(val) => {
-                let command : String = val.to_string_lossy().into();
+                let command : String = val.to_str().unwrap().into();
                 match command.as_ref() {
                     "search" => {
                         let mut match_class = false;
@@ -191,9 +209,8 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                         let mut match_pid = -1;
                         let mut limit : u32 = 0;
                         let mut match_all = false;
-                        while !next_arg_is_command(cmdline) {
-                            let option = cmdline.next()?.unwrap();
-                            match option {
+                        while let Some(arg) = try_parse_option(cmdline) {
+                            match arg {
                                 Long("class") => {
                                     match_class = true;
                                 },
@@ -232,9 +249,9 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                         let arg = cmdline.next()?.unwrap();
                         match arg {
                             Value(val) => {
-                                let search_term : String = val.to_string_lossy().into();
+                                let search_term : String = val.to_str().unwrap().into();
                                 result.push_str(
-                                    &reg.render_template(STEP_SEARCH, 
+                                    &reg.render_template(STEP_SEARCH,
                                     &json!({
                                         "kde5": context.kde5,
                                         "debug": context.debug,
@@ -257,31 +274,81 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
 
                     "getactivewindow" => {
                         result.push_str(
-                            &reg.render_template(STEP_GETACTIVEWINDOW, 
+                            &reg.render_template(STEP_GETACTIVEWINDOW,
                             &render_context)?);
                         last_step_is_query = true;
                     },
 
                     _ => {
                         if ACTIONS.contains_key(command.as_ref()) {
-                            let mut arg1 = "%1".to_string();
-                            while !next_arg_is_command(cmdline) {
-                                let arg = cmdline.next()?.unwrap();
+                            let mut opt_relative = false;
+
+                            while let Some(arg) = try_parse_option(cmdline) {
                                 match arg {
-                                    Value(val) => {
-                                        arg1 = val.to_string_lossy().into();
-                                        break;
-                                    },
+                                    Long("relative") => {
+                                        opt_relative = true;
+                                    }
                                     _ => {
                                         return Err(anyhow::anyhow!("Unexpected option"));
                                     }
                                 }
                             }
 
-                            let action = &reg.render_template(
-                                ACTIONS.get(command.as_ref()).unwrap(),
-                                &render_context)?;
-                            if arg1 == "%@" {
+                            let mut window_id = "%1".to_string();
+                            if let Some(arg) = try_parse_window_id(cmdline) {
+                                window_id = arg;
+                            }
+                            let mut action = String::new();
+
+                            if command == "windowmove" || command == "windowsize" {
+                                let mut x = String::new();
+                                let mut y = String::new();
+                                let mut x_percent = String::new();
+                                let mut y_percent = String::new();
+                                let arg : String = cmdline.value()?.to_str().unwrap().into();
+                                if arg != "x" {
+                                    if arg.ends_with("%") {
+                                        let s = arg[..arg.len()-1].to_string();
+                                        _ = s.parse::<i32>()?; 
+                                        x_percent = s;
+                                        return Err(anyhow::anyhow!("Relative positioning is not supported yet: {}%", x_percent));
+                                    } else {
+                                        _ = arg.parse::<i32>()?;
+                                        x = arg;
+                                    }
+                                }
+                                let arg : String = cmdline.value()?.to_str().unwrap().into();
+                                if arg != "y" {
+                                    if arg.ends_with("%") {
+                                        let s = arg[..arg.len()-1].to_string();
+                                        _ = s.parse::<i32>()?; 
+                                        y_percent = s;                           
+                                        return Err(anyhow::anyhow!("Relative positioning is not supported yet: {}%", y_percent));
+                                    } else {
+                                        _ = arg.parse::<i32>()?;
+                                        y = arg;
+                                    }
+                                }
+                                action = reg.render_template(
+                                    ACTIONS.get(command.as_ref()).unwrap(),
+                                    &json!({
+                                        "kde5": context.kde5,
+                                        "debug": context.debug,
+                                        "step_name": command,
+                                        "action": action,
+                                        "x": x,
+                                        "x_percent": x_percent,
+                                        "y": y,
+                                        "y_percent": y_percent,
+                                        "relative": opt_relative,
+                                    }))?;
+                            } else {
+                                action = reg.render_template(
+                                        ACTIONS.get(command.as_ref()).unwrap(),
+                                        &render_context)?;
+                            }
+
+                            if window_id == "%@" {
                                 result.push_str(&reg.render_template(
                                     STEP_ACTION_ON_STACK_ALL,
                                     &json!({
@@ -290,8 +357,8 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                         "step_name": command,
                                         "action": action,
                                     }))?);
-                            } else if arg1.starts_with("%") {
-                                let index = arg1[1..].parse::<i32>()?;
+                            } else if window_id.starts_with("%") {
+                                let index = window_id[1..].parse::<i32>()?;
                                 result.push_str(&reg.render_template(
                                     STEP_ACTION_ON_STACK_ITEM,
                                     &json!({
@@ -309,7 +376,7 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                         "debug": context.debug,
                                         "step_name": command,
                                         "action": action,
-                                        "window_id": arg1
+                                        "window_id": window_id
                                     }))?);
                             }
 
@@ -366,9 +433,8 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    while !next_arg_is_command(&mut cmdline) {
+    while let Some(arg) = try_parse_option(&mut cmdline) {
         use lexopt::prelude::*;
-        let arg = cmdline.next()?.unwrap();
         match arg {
             Short('h') | Long("help") => {
                 help();
@@ -381,14 +447,14 @@ fn main() -> anyhow::Result<()> {
                 context.dry_run = true;
             },
             Long("shortcut") => {
-                context.shortcut = cmdline.value()?.to_string_lossy().into();
+                context.shortcut = cmdline.value()?.to_str().unwrap().into();
             },
             Long("name") => {
-                context.name = cmdline.value()?.to_string_lossy().into();
+                context.name = cmdline.value()?.to_str().unwrap().into();
             },
             Long("remove") => {
                 context.remove = true;
-                context.name = cmdline.value()?.to_string_lossy().into();
+                context.name = cmdline.value()?.to_str().unwrap().into();
             },
             _ => {
                 return Err(arg.unexpected().into());
@@ -409,7 +475,7 @@ fn main() -> anyhow::Result<()> {
 
     log::debug!("===== Generate KWin script =====");
     let mut script_file = NamedTempFile::with_prefix("kdotool-")?;
-    context.marker = script_file.path().file_name().unwrap().to_str().unwrap().to_string();
+    context.marker = script_file.path().file_name().unwrap().to_str().unwrap().into();
 
     let script_contents = generate_script(&context, &mut cmdline)?;
 

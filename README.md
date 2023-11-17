@@ -72,7 +72,14 @@ Not in xdotool:
 - getwindowgeometry
   - MISSING:
     - --shell
-    - desktop number (property: desktops)
+    - desktop number
+- windowsize
+  - MISSING:
+    - --usehints
+    - --sync
+- windowmove
+  - MISSING:
+    - --sync
 - getwindowclassname
 - windowminimize
   - MISSING: --sync
@@ -91,8 +98,6 @@ Use `ydotool` for these.
 
 ## Planned to support
 
-- windowsize*
-- windowmove*
 - set_window*
 - windowstate*
 
