@@ -31,7 +31,7 @@ a X11 window id.
 
 - --help Show help.
 
-Not in xdotool:
+Options not in xdotool:
 
 - --dry-run Just print the generated KWin script. Don't run it.
 - --debug Print debug messages.
@@ -48,15 +48,6 @@ Not in xdotool:
 ### Window Queries
 
 - search
-  - --class
-  - --classname
-  - --role
-  - --name
-  - --pid
-  - --limit
-  - --title
-  - --all
-  - --any
   - MISSING:
     - --maxdepth
     - --onlyvisible
@@ -91,15 +82,25 @@ Not in xdotool:
 
 ## Won't support
 
+You can use `ydotool` for these:
+
 - Keyboard commands
 - Mouse commands
 
-Use `ydotool` for these.
+X11-specific:
+
+- windowreparent
 
 ## Planned to support
 
-- set_window*
-- windowstate*
+- set_window
+- windowstate
+- set_num_desktops
+- get_num_desktops
+- set_desktop
+- get_desktop
+- set_desktop_for_window
+- get_desktop_for_window
 
 ## Unclear if we can support
 
@@ -108,17 +109,10 @@ Use `ydotool` for these.
 - windowfocus
 - windowmap
 - windowlower
-- windowreparent
 - windowquit
 - windowunmap
-- set_num_desktops*
-- get_num_desktops*
 - set_desktop_viewport
 - get_desktop_viewport
-- set_desktop*
-- get_desktop*
-- set_desktop_for_window*
-- get_desktop_for_window*
 - exec
 - sleep
 - scripts
