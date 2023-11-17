@@ -1,4 +1,3 @@
-use std::env;
 use std::io::Write;
 use std::process::Command;
 use std::time::Duration;
@@ -7,6 +6,7 @@ use dbus::blocking::Connection;
 use tempfile::NamedTempFile;
 use handlebars::Handlebars;
 use serde_json::json;
+use lexopt::Parser;
 
 const SCRIPT_HEADER: &str = r#"
 print("{{{marker}}} START");
@@ -35,11 +35,6 @@ const SCRIPT_FOOTER: &str = r#"
 run();
 
 print("{{{marker}}} FINISH");
-"#;
-
-const STEP_GETACTIVEWINDOW : &str = r#"
-    output_debug("STEP getactivewindow")
-    window_stack = [workspace.activeWindow];
 "#;
 
 const STEP_SEARCH : &str = r#"
@@ -77,7 +72,12 @@ const STEP_SEARCH : &str = r#"
     }
 "#;
 
-const STEP_ACTION_WINDOW_ID : &str = r#"
+const STEP_GETACTIVEWINDOW : &str = r#"
+    output_debug("STEP getactivewindow")
+    window_stack = [workspace.activeWindow];
+"#;
+
+const STEP_ACTION_ON_WINDOW_ID : &str = r#"
     output_debug("STEP {{{step_name}}}")
     {{#if kde5}}
     t = workspace.clientList();
@@ -93,7 +93,7 @@ const STEP_ACTION_WINDOW_ID : &str = r#"
     }
 "#;
 
-const STEP_ACTION_STACK_ITEM : &str = r#"
+const STEP_ACTION_ON_STACK_ITEM : &str = r#"
     output_debug("STEP {{{step_name}}}")
     if (window_stack.length > 0) {
         if ({{{item_index}}} > window_stack.length || {{{item_index}}} < 1) {
@@ -105,7 +105,7 @@ const STEP_ACTION_STACK_ITEM : &str = r#"
     }
 "#;
 
-const STEP_ACTION_STACK_ALL : &str = r#"
+const STEP_ACTION_ON_STACK_ALL : &str = r#"
     output_debug("STEP {{{step_name}}}")
     for (var i=0; i<window_stack.length; i++) {
         var w = window_stack[i];
@@ -113,7 +113,7 @@ const STEP_ACTION_STACK_ALL : &str = r#"
     }
 "#;
 
-const STEP_OUTPUT : &str = r#"
+const STEP_LAST_OUTPUT : &str = r#"
     for (var i = 0; i < window_stack.length; ++i) {
         output_result(window_stack[i].internalId);
     }
@@ -131,79 +131,164 @@ static ACTIONS: phf::Map<&'static str, &'static str> = phf_map! {
     "windowactivate" => "workspace.setActiveWindow(w);",
 };
 
+struct Context {
+    cmdline: Box<Parser>,
+    debug: bool,
+    dry_run: bool,
+    kde5: bool,
+    marker: String,
+}
 
-fn generate_script(marker: &str, args: &[String]) -> anyhow::Result<String> {
+fn next_arg_is_option(cmdline : &mut Parser) -> bool {
+    match cmdline.try_raw_args().unwrap().peek() {
+        Some(arg) => {
+            return arg.to_string_lossy().starts_with("-");
+        },
+        None => {
+            return false;
+        }
+    }
+}
+
+fn generate_script(context : &mut Context) -> anyhow::Result<String> {
+    use lexopt::prelude::*;
+
     let mut result = String::new();
     let reg = Handlebars::new();
-    let context = json!({"marker": marker, "kde5": false, "debug": true});
+    let render_context = json!({
+        "marker": context.marker,
+        "kde5": context.kde5,
+        "debug": context.debug
+    });
 
-    result.push_str(&reg.render_template(SCRIPT_HEADER, &context)?);
+    result.push_str(&reg.render_template(SCRIPT_HEADER, &render_context)?);
 
-    let mut arg_index = 0;
     let mut last_step_is_query = false;
 
-    while arg_index < args.len() {
-        let arg0 = &args[arg_index];
-        arg_index += 1;
+    while let Some(arg) = context.cmdline.next()? {
+        match arg {
+            Value(val) => {
+                let command : String = val.to_string_lossy().into();
+                match command.as_ref() {
 
-        if arg0 == "getactivewindow" {
-            result.push_str(&reg.render_template(STEP_GETACTIVEWINDOW, &context)?);
-            last_step_is_query = true;
+                    "search" => {
+                        let arg = context.cmdline.next()?.unwrap();
+                        match arg {
+                            Value(val) => {
+                                let search_term : String = val.to_string_lossy().into();
+                                result.push_str(&reg.render_template(STEP_SEARCH, &json!({"search_term": search_term, "match_any": false}))?);
+                                last_step_is_query = true;
+                            },
+                            _ => {
+                                return Err(anyhow::anyhow!("Missing search term"));
+                            }
+                        }
+                    },
 
-        } else if arg0 == "search" {
-            if arg_index >= args.len() {
-                return Err(anyhow::anyhow!("Missing argument for search"));
+                    "getactivewindow" => {
+                        result.push_str(&reg.render_template(STEP_GETACTIVEWINDOW, &render_context)?);
+                        last_step_is_query = true;
+                    },
+
+                    _ => {
+                        if ACTIONS.contains_key(command.as_ref()) {
+                            let mut arg1 = "%1".to_string();
+                            while next_arg_is_option(&mut context.cmdline) {
+                                let arg = context.cmdline.next()?.unwrap();
+                                match arg {
+                                    Value(val) => {
+                                        arg1 = val.to_string_lossy().into();
+                                    },
+                                    _ => {
+                                        return Err(anyhow::anyhow!("Unexpected option"));
+                                    }
+                                }
+                            }
+
+                            let action = &reg.render_template(ACTIONS.get(command.as_ref()).unwrap(), &render_context)?;
+                            if arg1 == "%@" {
+                                result.push_str(&reg.render_template(STEP_ACTION_ON_STACK_ALL, &json!({"step_name": command, "action": action}))?);
+                            } else if arg1.starts_with("%") {
+                                let index = arg1[1..].parse::<i32>()?;
+                                result.push_str(&reg.render_template(STEP_ACTION_ON_STACK_ITEM, &json!({"step_name": command, "action": action, "item_index": index}))?);
+                            } else {
+                                result.push_str(&reg.render_template(STEP_ACTION_ON_WINDOW_ID, &json!({"step_name": command, "action": action, "window_id": arg1}))?);
+                            }
+
+                            last_step_is_query = false;
+                        } else {
+                            return Err(anyhow::anyhow!("Unknown command: {}", command));
+                        }
+                    }
+                }
+            },
+            _ => {
+                return Err(anyhow::anyhow!("Unexpected option"));
             }
-            let search_term = &args[arg_index];
-            result.push_str(&reg.render_template(STEP_SEARCH, &json!({"search_term": search_term, "match_any": true}))?);
-            last_step_is_query = true;
-            arg_index += 1;
-
-        } else if ACTIONS.contains_key(arg0.as_str()) {
-            let arg1;
-            if arg_index >= args.len() || char::is_alphabetic(args[arg_index].chars().next().unwrap()) {
-                arg1 = "%1";
-            } else {
-                arg1 = args[arg_index].as_str();
-                arg_index += 1;
-            }
-
-            let action = &reg.render_template(ACTIONS.get(arg0.as_str()).unwrap(), &context)?;
-            if arg1 == "%@" {
-                result.push_str(&reg.render_template(STEP_ACTION_STACK_ALL, &json!({"step_name": arg0, "action": action}))?);
-            } else if arg1.starts_with("%") {
-                let index = arg1[1..].parse::<i32>()?;
-                result.push_str(&reg.render_template(STEP_ACTION_STACK_ITEM, &json!({"step_name": arg0, "action": action, "item_index": index}))?);
-            } else {
-                result.push_str(&reg.render_template(STEP_ACTION_WINDOW_ID, &json!({"step_name": arg0, "action": action, "window_id": arg1}))?);
-            }
-
-            last_step_is_query = false;
-
-        } else {
-            return Err(anyhow::anyhow!("Unknown command: {}", arg0));
         }
     }
 
     if last_step_is_query {
-        result.push_str(&reg.render_template(STEP_OUTPUT, &context)?);
+        result.push_str(&reg.render_template(STEP_LAST_OUTPUT, &render_context)?);
     }
 
-    result.push_str(&reg.render_template(SCRIPT_FOOTER, &context)?);
+    result.push_str(&reg.render_template(SCRIPT_FOOTER, &render_context)?);
 
     Ok(result)
 }
 
 fn main() -> anyhow::Result<()> {
+    use lexopt::prelude::*;
+
     env_logger::init();
 
-    let args: Vec<String> = env::args().collect();
+    let mut context = Context {
+        cmdline: Box::new(Parser::from_env()),
+        debug: false,
+        dry_run: false,
+        kde5: false,
+        marker: String::new(),
+    };
+
+    match std::env::var("KDE_SESSION_VERSION") {
+        Ok(version) => {
+            if version == "5" {
+                context.kde5 = true;
+            }
+        },
+        Err(_) => {},
+    }
+
+    // Parse global options
+    if context.cmdline.try_raw_args().unwrap().peek().is_none() {
+        help();
+        return Ok(());
+    }
+
+    while next_arg_is_option(&mut context.cmdline) {
+        let arg = context.cmdline.next()?.unwrap();
+        match arg {
+            Short('h') | Long("help") => {
+                help();
+                return Ok(());
+            },
+            Short('d') | Long("debug") => {
+                context.debug = true;
+            },
+            Short('n') | Long("dry-run") => {
+                context.dry_run = true;
+            },
+            _ => {
+                return Err(arg.unexpected().into());
+            }
+        }
+    }
 
     log::debug!("===== Generate KWin script =====");
     let mut script_file = NamedTempFile::with_prefix("kdotool-")?;
-    let script_marker = script_file.path().file_name().unwrap().to_str().unwrap();
+    context.marker = script_file.path().file_name().unwrap().to_str().unwrap().to_string();
 
-    let script_contents = generate_script(script_marker, &args[1..])?;
+    let script_contents = generate_script(&mut context)?;
 
     log::debug!("Script:{}", script_contents);
     script_file.write_all(script_contents.as_bytes())?;
@@ -225,6 +310,7 @@ fn main() -> anyhow::Result<()> {
         .arg(format!("--since={}", start_time.format("%Y-%m-%d %H:%M:%S")))
         .arg("--user")
         .arg("--unit=plasma-kwin_wayland.service")
+        .arg("--unit=plasma-kwin_x11.service")
         .arg("--output=cat")
         .output()?;
     let output = String::from_utf8(journal.stdout)?;
@@ -246,4 +332,32 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn help() {
+    println!("Usage: kdotool [options] <command> [args...]");
+    println!();
+    println!("Options:");
+    println!("  -h, --help       Show this help");
+    println!("  -d, --debug      Enable debug output");
+    println!("  -n, --dry-run    Don't actually run the script. Just print it to stdout.");
+    println!();
+    println!("Commands:");
+    println!("  search <term>");
+    println!("  getactivewindow");
+    println!("  getwindowname <window>");
+    println!("  getwindowclassname <window>");
+    println!("  getwindowgeometry <window>");
+    println!("  getwindowpid <window>");
+    println!("  windowminimize <window>");
+    println!("  windowraise <window>");
+    println!("  windowclose <window>");
+    println!("  windowkill <window>");
+    println!("  windowactivate <window>");
+    println!();
+    println!("Window can be specified as:");
+    println!("  %1 - the first window in the stack (default)");
+    println!("  %2 - the second window in the stack");
+    println!("  %@ - all windows in the stack");
+    println!("  <window id> - the window with the given ID");
 }
