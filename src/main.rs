@@ -52,27 +52,33 @@ const STEP_SEARCH : &str = r#"
     window_stack = [];
     for (var i=0; i<t.length; i++) {
         var w = t[i];
-        var candidates = [w.caption, w.resourceClass, w.resourceName, w.windowRole,];
-        output_debug(candidates)
-        {{#if match_any}}
-        for (var j=0; j<candidates.length; j++) {
-            if (candidates[j].search(re) >= 0) {
-                window_stack.push(w);
-                break;
-            }
-        }
-        {{else}}
-        var mismatch = false;
-        for (var j=0; j<candidates.length; j++) {
-            if (candidates[j].search(re) < 0) {
-                mismatch = true;
-                break;
-            }
-        }
-        if (!mismatch) {
+        if ({{#if match_all}}true{{else}}false{{/if}}
+            {{#if match_class}}
+            {{#if match_all}}&&{{else}}||{{/if}}
+            w.resourceClass.search(re) >= 0
+            {{/if}}
+            {{#if match_classname}}
+            {{#if match_all}}&&{{else}}||{{/if}}
+            w.resourceName.search(re) >= 0
+            {{/if}}
+            {{#if match_role}}
+            {{#if match_all}}&&{{else}}||{{/if}}
+            w.windowRole.search(re) >= 0
+            {{/if}}
+            {{#if match_name}}
+            {{#if match_all}}&&{{else}}||{{/if}}
+            w.caption.search(re) >= 0
+            {{/if}}
+            {{#if match_pid}}
+            {{#if match_all}}&&{{else}}||{{/if}}
+            w.pid == {{{match_pid}}}
+            {{/if}}
+        ) {
             window_stack.push(w);
+            if ({{{limit}}} > 0 && window_stack.length >= {{{limit}}}) {
+                break;
+            }
         }
-        {{/if}}
     }
 "#;
 
@@ -145,13 +151,13 @@ struct Context {
     remove: bool,
 }
 
-fn next_arg_is_option(cmdline : &mut Parser) -> bool {
+fn next_arg_is_command(cmdline : &mut Parser) -> bool {
     match cmdline.try_raw_args().unwrap().peek() {
         Some(arg) => {
-            return arg.to_string_lossy().starts_with("-");
+            return char::is_alphabetic(arg.to_string_lossy().chars().next().unwrap());
         },
         None => {
-            return false;
+            return true;
         }
     }
 }
@@ -177,8 +183,52 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
             Value(val) => {
                 let command : String = val.to_string_lossy().into();
                 match command.as_ref() {
-
                     "search" => {
+                        let mut match_class = false;
+                        let mut match_classname = false;
+                        let mut match_role = false;
+                        let mut match_name = false;
+                        let mut match_pid = -1;
+                        let mut limit : u32 = 0;
+                        let mut match_all = false;
+                        while !next_arg_is_command(cmdline) {
+                            let option = cmdline.next()?.unwrap();
+                            match option {
+                                Long("class") => {
+                                    match_class = true;
+                                },
+                                Long("classname") => {
+                                    match_classname = true;
+                                },
+                                Long("role") => {
+                                    match_role = true;
+                                },
+                                Long("name") => {
+                                    match_name = true;
+                                },
+                                Long("pid") => {
+                                    match_pid = cmdline.value()?.parse()?;
+                                },
+                                Long("limit") => {
+                                    limit = cmdline.value()?.parse()?;
+                                },
+                                Long("all") => {
+                                    match_all = true;
+                                },
+                                Long("any") => {
+                                    match_all = false;
+                                },
+                                _ => {
+                                    return Err(anyhow::anyhow!("Unknown option"));
+                                }
+                            }
+                        }
+                        if !(match_class || match_classname || match_role || match_name) {
+                            match_class = true;
+                            match_classname = true;
+                            match_role = true;
+                            match_name = true;
+                        }
                         let arg = cmdline.next()?.unwrap();
                         match arg {
                             Value(val) => {
@@ -189,7 +239,13 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                         "kde5": context.kde5,
                                         "debug": context.debug,
                                         "search_term": search_term,
-                                        "match_any": false,
+                                        "match_all": match_all,
+                                        "match_class": match_class,
+                                        "match_classname": match_classname,
+                                        "match_role": match_role,
+                                        "match_name": match_name,
+                                        "match_pid": match_pid,
+                                        "limit": limit,
                                     }))?);
                                 last_step_is_query = true;
                             },
@@ -209,11 +265,12 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                     _ => {
                         if ACTIONS.contains_key(command.as_ref()) {
                             let mut arg1 = "%1".to_string();
-                            while next_arg_is_option(cmdline) {
+                            while !next_arg_is_command(cmdline) {
                                 let arg = cmdline.next()?.unwrap();
                                 match arg {
                                     Value(val) => {
                                         arg1 = val.to_string_lossy().into();
+                                        break;
                                     },
                                     _ => {
                                         return Err(anyhow::anyhow!("Unexpected option"));
@@ -309,7 +366,7 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    while next_arg_is_option(&mut cmdline) {
+    while !next_arg_is_command(&mut cmdline) {
         use lexopt::prelude::*;
         let arg = cmdline.next()?.unwrap();
         match arg {

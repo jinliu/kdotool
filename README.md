@@ -48,17 +48,21 @@ Not in xdotool:
 ### Window Queries
 
 - search
+  - --class
+  - --classname
+  - --role
+  - --name
+  - --pid
+  - --limit
+  - --title
+  - --all
+  - --any
   - MISSING:
-    - --class
-    - --classname
-    - --role
-    - --name
+    - --maxdepth
     - --onlyvisible
-    - --pid
     - --screen
     - --desktop
     - --sync
-    - --limit
 - getactivewindow
 
 ### Window Actions
