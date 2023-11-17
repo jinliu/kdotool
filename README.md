@@ -117,3 +117,9 @@ X11-specific:
 - sleep
 - scripts
 - behave window action command
+
+## Troubleshooting
+
+If anything fails to work, you can re-run the command with `--debug` option.
+It will print the generated KWin script, and the output of the script from
+KWin. If you think it's a bug, please create an issue in [GitHub](https://github.com/jinliu/kdotool/issues).
