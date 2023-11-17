@@ -44,11 +44,7 @@ print("{{{marker}}} FINISH");
 const STEP_SEARCH : &str = r#"
     output_debug("STEP search {{{search_term}}}")
     const re = new RegExp("{{{search_term}}}", "i");
-    {{#if kde5}}
-    t = workspace.clientList();
-    {{else}}
-    t = workspace.windowList();
-    {{/if}}
+    t = workspace.{{#if kde5}}client{{else}}window{{/if}}List();
     window_stack = [];
     for (var i=0; i<t.length; i++) {
         var w = t[i];
@@ -84,16 +80,12 @@ const STEP_SEARCH : &str = r#"
 
 const STEP_GETACTIVEWINDOW : &str = r#"
     output_debug("STEP getactivewindow")
-    window_stack = [workspace.activeWindow];
+    window_stack = [workspace.active{{#if kde5}}Client{{else}}Window{{/if}}];
 "#;
 
 const STEP_ACTION_ON_WINDOW_ID : &str = r#"
     output_debug("STEP {{{step_name}}}")
-    {{#if kde5}}
-    t = workspace.clientList();
-    {{else}}
-    t = workspace.windowList();
-    {{/if}}
+    t = workspace.{{#if kde5}}client{{else}}window{{/if}}List();
     for (var i=0; i<t.length; i++) {
         var w = t[i];
         if (w.internalId == "{{{window_id}}}") {
@@ -135,9 +127,9 @@ static ACTIONS: phf::Map<&'static str, &'static str> = phf_map! {
     "getwindowgeometry" => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
     "getwindowpid" => "output_result(w.pid);",
     "windowminimize" => "w.minimized = true;",
-    "windowraise" => "workspace.raiseWindow(w);",
+    "windowraise" => r#"{{#if kde5}}output_error("windowraise unsupported in KDE 5");{{else}}workspace.raiseWindow(w);{{/if}}"#,
     "windowclose" => "w.closeWindow();",
-    "windowactivate" => "workspace.activeWindow = w;",
+    "windowactivate" => "workspace.active{{#if kde5}}Client{{else}}Window{{/if}} = w;",
     "windowsize" => r#"
             let q = Object.assign({}, w.frameGeometry);
             {{#if x}}q.width={{{x}}};{{/if}}

@@ -74,6 +74,7 @@ Options not in xdotool:
 - windowminimize
   - MISSING: --sync
 - windowraise
+  - NOTE: doesn't work in KDE 5
 - windowactivate
   - MISSING: --sync
 - windowclose
