@@ -1,8 +1,41 @@
-# kdotool
+# kdotool - a `xdotool` clone for KDE Wayland
 
-## done
+## Introduction
 
-### window queries
+Wayland, for security concerns, removed most of the X11 APIs that `xdotool`
+uses to simulate user input and control windows. [ydotool](https://github.com/ReimuNotMoe/ydotool)
+solves the input part by talking directly to the kernel input device. However,
+for the window control part, you have to use each Wayland compositor's own APIs.
+
+This program uses KWin's scripting API to control windows. In each invocation,
+it generates a KWin script on-the-fly, load it into KWin, runs it, and then
+delete it, using KWin's DBus interface. It collects output of the script from
+the systemd journal, so you must be using systemd and have KWin running as a
+systemd user service (which is the default), for it to work.
+
+This program should work with both KDE 5 and the upcoming KDE 6. It should work
+with both Wayland and X11 sessions.
+
+Not all `xdotool` commands are supported. Some are not available through the KWin
+API. Some are even not possible, or have no corresponding concept, in Wayland.
+See below for details.
+
+Please note that the `window id` this program uses is KWin's internal window id,
+which looks like a UUID (e.g. {04add7fb-72b8-4e58-8ac1-5e22730b907b}). It's not
+a X11 window id.
+
+## Global Options
+
+- --help Show help.
+
+Not in xdotool:
+
+- --dry-run Just print the generated KWin script. Don't run it.
+- --debug Print debug messages.
+
+## Supported xdotool Commands
+
+### Window Queries
 
 - search
   - MISSING:
@@ -18,7 +51,7 @@
     - --limit
 - getactivewindow
 
-### window actions
+### Window Actions
 
 - getwindowpid
 - getwindowgeometry
@@ -33,6 +66,13 @@
 - windowkill
 - windowactivate
   - MISSING: --force
+
+## Won't support
+
+- Keyboard commands
+- Mouse commands
+
+Use `ydotool` for these.
 
 ## TODO
 
@@ -67,6 +107,4 @@
 - exec
 - sleep
 - scripts
-- keyboard
-- mouse
 - behave window action command
