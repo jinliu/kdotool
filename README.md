@@ -20,6 +20,9 @@ Not all `xdotool` commands are supported. Some are not available through the KWi
 API. Some are even not possible, or have no corresponding concept, in Wayland.
 See below for details.
 
+Please refer to [xdotool documentation](https://github.com/jordansissel/xdotool/blob/master/xdotool.pod)
+for the usage of each command.
+
 Please note that the `window id` this program uses is KWin's internal window id,
 which looks like a UUID (e.g. {04add7fb-72b8-4e58-8ac1-5e22730b907b}). It's not
 a X11 window id.
