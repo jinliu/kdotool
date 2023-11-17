@@ -68,18 +68,19 @@ Not in xdotool:
 ### Window Actions
 
 - getwindowpid
-- getwindowgeometry
-- getwindowclassname
 - getwindowname
+- getwindowgeometry
   - MISSING:
     - --shell
     - desktop number (property: desktops)
+- getwindowclassname
 - windowminimize
-  - MISSING: --force
+  - MISSING: --sync
+- windowraise
+- windowactivate
+  - MISSING: --sync
 - windowclose
 - windowkill
-- windowactivate
-  - MISSING: --force
 
 ## Won't support
 
@@ -88,25 +89,23 @@ Not in xdotool:
 
 Use `ydotool` for these.
 
-## TODO
-
-### window queries
-
-- selectwindow
-- getwindowfocus
-
-### window functions
+## Planned to support
 
 - windowsize*
 - windowmove*
+- set_window*
+- windowstate*
+
+## Unclear if we can support
+
+- selectwindow
+- getwindowfocus
 - windowfocus
 - windowmap
 - windowlower
 - windowreparent
 - windowquit
 - windowunmap
-- set_window*
-- windowstate*
 - set_num_desktops*
 - get_num_desktops*
 - set_desktop_viewport
@@ -115,9 +114,6 @@ Use `ydotool` for these.
 - get_desktop*
 - set_desktop_for_window*
 - get_desktop_for_window*
-
-### misc
-
 - exec
 - sleep
 - scripts
