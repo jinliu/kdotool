@@ -138,7 +138,7 @@ pub const STEP_LAST_OUTPUT: &str = r#"
 pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "getwindowname"         => "output_result(w.caption);",
     "getwindowclassname"    => "output_result(w.resourceClass);",
-    "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
+    "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}{{#if kde5}} (screen: ${w.screen}){{/if}}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
     "getwindowpid"          => "output_result(w.pid);",
     "windowminimize"        => "w.minimized = true;",
     "windowraise"           => r#"{{#if kde5}}output_error("windowraise unsupported in KDE 5");{{else}}workspace.raiseWindow(w);{{/if}}"#,

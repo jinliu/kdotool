@@ -65,9 +65,8 @@ Options not in xdotool:
 - getwindowpid
 - getwindowname
 - getwindowgeometry
-  - MISSING:
-    - --shell
-    - screen number
+  - MISSING: --shell
+  - NOTE: no screen number in KDE 6
 - windowsize
   - MISSING:
     - size in percentage
