@@ -23,7 +23,7 @@ struct Context {
 
 fn try_parse_option(parser: &mut Parser) -> Option<Arg> {
     let s = parser.try_raw_args()?.peek()?.to_str().unwrap().to_string();
-    if s.starts_with("-") {
+    if s.starts_with('-') {
         let next_char = s.chars().nth(1)?;
         if next_char.is_ascii_alphabetic() || next_char == '-' {
             return parser.next().unwrap();
@@ -35,7 +35,7 @@ fn try_parse_option(parser: &mut Parser) -> Option<Arg> {
 fn try_parse_window_id(parser: &mut Parser) -> Option<String> {
     let mut raw = parser.try_raw_args()?;
     let s = raw.peek()?.to_str().unwrap().to_string();
-    if s.starts_with("%") || s.starts_with("{") {
+    if s.starts_with('%') || s.starts_with('{') {
         _ = raw.next();
         return Some(s);
     }
@@ -62,7 +62,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
         use lexopt::prelude::*;
         match arg {
             Value(val) => {
-                let command: String = val.to_str().unwrap().into();
+                let command: String = val.string()?;
                 match command.as_ref() {
                     "search" => {
                         let mut match_class = false;
@@ -109,7 +109,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                             match_role = true;
                             match_name = true;
                         }
-                        let search_term: String = parser.value()?.to_str().unwrap().into();
+                        let search_term: String = parser.value()?.string()?;
                         result.push_str(&reg.render_template(
                             STEP_SEARCH,
                             &json!({
@@ -174,9 +174,9 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 let mut y = String::new();
                                 let mut x_percent = String::new();
                                 let mut y_percent = String::new();
-                                let arg: String = parser.value()?.to_str().unwrap().into();
+                                let arg: String = parser.value()?.string()?;
                                 if arg != "x" {
-                                    if arg.ends_with("%") {
+                                    if arg.ends_with('%') {
                                         let s = arg[..arg.len() - 1].to_string();
                                         _ = s.parse::<i32>()?;
                                         x_percent = s;
@@ -186,9 +186,9 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         x = arg;
                                     }
                                 }
-                                let arg: String = parser.value()?.to_str().unwrap().into();
+                                let arg: String = parser.value()?.string()?;
                                 if arg != "y" {
-                                    if arg.ends_with("%") {
+                                    if arg.ends_with('%') {
                                         let s = arg[..arg.len() - 1].to_string();
                                         _ = s.parse::<i32>()?;
                                         y_percent = s;
@@ -229,8 +229,8 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         "action": action,
                                     }),
                                 )?);
-                            } else if window_id.starts_with("%") {
-                                let index = window_id[1..].parse::<i32>()?;
+                            } else if let Some(s) = window_id.strip_prefix('%') {
+                                let index = s.parse::<i32>()?;
                                 result.push_str(&reg.render_template(
                                     STEP_ACTION_ON_STACK_ITEM,
                                     &json!({
@@ -315,14 +315,14 @@ fn main() -> anyhow::Result<()> {
                 context.dry_run = true;
             }
             Long("shortcut") => {
-                context.shortcut = parser.value()?.to_str().unwrap().into();
+                context.shortcut = parser.value()?.string()?;
             }
             Long("name") => {
-                context.name = parser.value()?.to_str().unwrap().into();
+                context.name = parser.value()?.string()?;
             }
             Long("remove") => {
                 context.remove = true;
-                context.name = parser.value()?.to_str().unwrap().into();
+                context.name = parser.value()?.string()?;
             }
             _ => {
                 return Err(arg.unexpected().into());
@@ -426,10 +426,10 @@ fn main() -> anyhow::Result<()> {
             let t = &line[script_marker.len()..];
             const RESULT: &str = "RESULT ";
             const ERROR: &str = "ERROR ";
-            if t.starts_with(RESULT) {
-                println!("{}", &t[RESULT.len()..]);
-            } else if t.starts_with(ERROR) {
-                eprintln!("{}", &t[ERROR.len()..]);
+            if let Some(x) = t.strip_prefix(RESULT) {
+                println!("{x}");
+            } else if let Some(x) = t.strip_prefix(ERROR) {
+                eprintln!("{x}");
             }
         }
     }
