@@ -140,4 +140,15 @@ pub const ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
             {{#if x}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
             {{#if y}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
 "#,
+    "get_desktop_for_window"=> r#"{{#if kde5}}output_result(w.desktop);{{else}}output_result(w.desktops[0].x11DesktopNumber);{{/if}}"#,
+    "set_desktop_for_window"=> r#"
+            {{#if kde5}}w.desktop={{arg}};{{else}}
+            desktops = workspace.desktops;
+            for (var i=0; i<desktops.length; i++) {
+                if (desktops[i].x11DesktopNumber == {{arg}}) {
+                    w.desktops = [desktops[i]];
+                    break;
+                }
+            }
+            {{/if}}"#,
 };

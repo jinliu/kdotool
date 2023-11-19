@@ -167,57 +167,68 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
 
                             let window_id =
                                 try_parse_window_id(parser).unwrap_or(String::from("%1"));
-                            let mut action = String::new();
 
-                            if command == "windowmove" || command == "windowsize" {
-                                let mut x = String::new();
-                                let mut y = String::new();
-                                let mut x_percent = String::new();
-                                let mut y_percent = String::new();
-                                let arg: String = parser.value()?.string()?;
-                                if arg != "x" {
-                                    if arg.ends_with('%') {
-                                        let s = arg[..arg.len() - 1].to_string();
-                                        _ = s.parse::<i32>()?;
-                                        x_percent = s;
-                                        return Err(anyhow!("Relative positioning is not supported yet: {x_percent}%"));
-                                    } else {
-                                        _ = arg.parse::<i32>()?;
-                                        x = arg;
+                            let action = match command.as_str() {
+                                "windowmove" | "windowsize" => {
+                                    let mut x = String::new();
+                                    let mut y = String::new();
+                                    let mut x_percent = String::new();
+                                    let mut y_percent = String::new();
+                                    let arg: String = parser.value()?.string()?;
+                                    if arg != "x" {
+                                        if arg.ends_with('%') {
+                                            let s = arg[..arg.len() - 1].to_string();
+                                            _ = s.parse::<i32>()?;
+                                            x_percent = s;
+                                            return Err(anyhow!("Relative positioning is not supported yet: {x_percent}%"));
+                                        } else {
+                                            _ = arg.parse::<i32>()?;
+                                            x = arg;
+                                        }
                                     }
-                                }
-                                let arg: String = parser.value()?.string()?;
-                                if arg != "y" {
-                                    if arg.ends_with('%') {
-                                        let s = arg[..arg.len() - 1].to_string();
-                                        _ = s.parse::<i32>()?;
-                                        y_percent = s;
-                                        return Err(anyhow!("Relative positioning is not supported yet: {y_percent}%"));
-                                    } else {
-                                        _ = arg.parse::<i32>()?;
-                                        y = arg;
+                                    let arg: String = parser.value()?.string()?;
+                                    if arg != "y" {
+                                        if arg.ends_with('%') {
+                                            let s = arg[..arg.len() - 1].to_string();
+                                            _ = s.parse::<i32>()?;
+                                            y_percent = s;
+                                            return Err(anyhow!("Relative positioning is not supported yet: {y_percent}%"));
+                                        } else {
+                                            _ = arg.parse::<i32>()?;
+                                            y = arg;
+                                        }
                                     }
+                                    reg.render_template(
+                                        ACTIONS.get(command.as_ref()).unwrap(),
+                                        &json!({
+                                            "debug": context.debug,
+                                            "kde5": context.kde5,
+                                            "relative": opt_relative,
+                                            "x": x,
+                                            "x_percent": x_percent,
+                                            "y": y,
+                                            "y_percent": y_percent,
+                                        }),
+                                    )?
                                 }
-                                action = reg.render_template(
-                                    ACTIONS.get(command.as_ref()).unwrap(),
-                                    &json!({
-                                        "debug": context.debug,
-                                        "kde5": context.kde5,
-                                        "step_name": command,
-                                        "action": action,
-                                        "x": x,
-                                        "x_percent": x_percent,
-                                        "y": y,
-                                        "y_percent": y_percent,
-                                        "relative": opt_relative,
-                                    }),
-                                )?;
-                            } else {
-                                action = reg.render_template(
-                                    ACTIONS.get(command.as_ref()).unwrap(),
-                                    &render_context,
-                                )?;
-                            }
+                                "set_desktop_for_window" => {
+                                    let arg: String = parser.value()?.string()?;
+                                    reg.render_template(
+                                        ACTIONS.get(command.as_ref()).unwrap(),
+                                        &json!({
+                                            "debug": context.debug,
+                                            "kde5": context.kde5,
+                                            "arg": arg,
+                                        }),
+                                    )?
+                                }
+                                _ => {
+                                    reg.render_template(
+                                        ACTIONS.get(command.as_ref()).unwrap(),
+                                        &render_context,
+                                    )?
+                                }
+                            };
 
                             if window_id == "%@" {
                                 result.push_str(&reg.render_template(

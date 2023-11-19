@@ -68,7 +68,7 @@ Options not in xdotool:
 - getwindowgeometry
   - MISSING:
     - --shell
-    - desktop number
+    - screen number
 - windowsize
   - MISSING:
     - size in percentage
@@ -86,6 +86,8 @@ Options not in xdotool:
 - windowactivate
   - MISSING: --sync
 - windowclose
+- set_desktop_for_window
+- get_desktop_for_window
 
 ## Won't support
 
@@ -106,8 +108,6 @@ X11-specific:
 - get_num_desktops
 - set_desktop
 - get_desktop
-- set_desktop_for_window
-- get_desktop_for_window
 
 ## Unclear if we can support
 
