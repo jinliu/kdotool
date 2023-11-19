@@ -57,7 +57,6 @@ Options not in xdotool:
     - --maxdepth
     - --onlyvisible
     - --screen
-    - --desktop
     - --sync
 - getactivewindow
 

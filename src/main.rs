@@ -69,7 +69,10 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                         let mut match_classname = false;
                         let mut match_role = false;
                         let mut match_name = false;
-                        let mut match_pid = -1;
+                        let mut match_pid = false;
+                        let mut pid = 0;
+                        let mut match_desktop = false;
+                        let mut desktop = 0;
                         let mut limit: u32 = 0;
                         let mut match_all = false;
                         while let Some(arg) = try_parse_option(parser) {
@@ -87,7 +90,12 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                     match_name = true;
                                 }
                                 Long("pid") => {
-                                    match_pid = parser.value()?.parse()?;
+                                    match_pid = true;
+                                    pid = parser.value()?.parse()?;
+                                }
+                                Long("desktop") => {
+                                    match_desktop = true;
+                                    desktop = parser.value()?.parse()?;
                                 }
                                 Long("limit") => {
                                     limit = parser.value()?.parse()?;
@@ -122,6 +130,9 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 "match_role": match_role,
                                 "match_name": match_name,
                                 "match_pid": match_pid,
+                                "pid": pid,
+                                "match_desktop": match_desktop,
+                                "desktop": desktop,
                                 "limit": limit,
                             }),
                         )?);

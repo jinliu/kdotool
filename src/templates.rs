@@ -57,9 +57,23 @@ pub const STEP_SEARCH: &str = r#"
             {{/if}}
             {{#if match_pid}}
             {{#if match_all}}&&{{else}}||{{/if}}
-            w.pid == {{{match_pid}}}
+            w.pid == {{{pid}}}
             {{/if}}
         ) {
+            {{#if match_desktop}}
+            {{#if kde5}}if (w.desktop != {{{desktop}}}) break;{{else}}
+            desktops = w.desktops;
+            found = false;
+            for (var j=0; j<desktops.length; j++) {
+                if (desktops[j].x11DesktopNumber == {{{desktop}}}) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                break;
+            {{/if}}
+            {{/if}}
             window_stack.push(w);
             if ({{{limit}}} > 0 && window_stack.length >= {{{limit}}}) {
                 break;
@@ -142,11 +156,11 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
 "#,
     "get_desktop_for_window"=> r#"{{#if kde5}}output_result(w.desktop);{{else}}output_result(w.desktops[0].x11DesktopNumber);{{/if}}"#,
     "set_desktop_for_window"=> r#"
-            {{#if kde5}}w.desktop={{arg}};{{else}}
+            {{#if kde5}}w.desktop={{{arg}}};{{else}}
             desktops = workspace.desktops;
-            for (var i=0; i<desktops.length; i++) {
-                if (desktops[i].x11DesktopNumber == {{arg}}) {
-                    w.desktops = [desktops[i]];
+            for (var j=0; j<desktops.length; j++) {
+                if (desktops[j].x11DesktopNumber == {{{arg}}}) {
+                    w.desktops = [desktops[j]];
                     break;
                 }
             }
@@ -161,15 +175,15 @@ pub const STEP_GLOBAL_ACTION: &str = r#"
 pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "get_desktop"           => r#"{{#if kde5}}output_result(workspace.currentDesktop);{{else}}output_result(workspace.currentDesktop.x11DesktopNumber);{{/if}}"#,
     "set_desktop"           => r#"
-    {{#if kde5}}workspace.currentDesktop={{arg}};{{else}}
+    {{#if kde5}}workspace.currentDesktop={{{arg}}};{{else}}
     desktops = workspace.desktops;
     for (var i=0; i<desktops.length; i++) {
-        if (desktops[i].x11DesktopNumber == {{arg}}) {
+        if (desktops[i].x11DesktopNumber == {{{arg}}}) {
             workspace.currentDesktop = desktops[i];
             break;
         }
     }
     {{/if}}"#,
     "get_num_desktops"           => r#"{{#if kde5}}output_result(workspace.desktops);{{else}}output_result(workspace.desktops.length);{{/if}}"#,
-    "set_num_desktops"           => r#"{{#if kde5}}workspace.desktops={{arg}};{{else}}output_error("set_num_desktops unsupported in KDE 6){{/if}}"#,
+    "set_num_desktops"           => r#"{{#if kde5}}workspace.desktops={{{arg}}};{{else}}output_error("set_num_desktops unsupported in KDE 6){{/if}}"#,
 };
