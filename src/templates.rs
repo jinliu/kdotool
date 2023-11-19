@@ -74,6 +74,8 @@ pub const STEP_SEARCH: &str = r#"
                 break;
             {{/if}}
             {{/if}}
+            {{#if match_screen}}
+            {{#if kde5}}if (w.screen != {{{screen}}}) break;{{else}}output_error("search --screen unsupported in KDE 6");{{/if}}{{/if}}
             window_stack.push(w);
             if ({{{limit}}} > 0 && window_stack.length >= {{{limit}}}) {
                 break;

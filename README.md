@@ -54,10 +54,11 @@ Options not in xdotool:
 
 - search
   - MISSING:
-    - --maxdepth
+    - --maxdepth: only toplevel windows supported in wayland
     - --onlyvisible
-    - --screen
     - --sync
+  - NOTE:
+    - --screen only in KDE5
 - getactivewindow
 
 ### Window Actions
@@ -80,7 +81,7 @@ Options not in xdotool:
 - windowminimize
   - MISSING: --sync
 - windowraise
-  - NOTE: doesn't work in KDE 5
+  - NOTE: Doesn't work in KDE 5. Use `windowactivate` instead?
 - windowactivate
   - MISSING: --sync
 - windowclose
@@ -88,13 +89,13 @@ Options not in xdotool:
 - get_desktop_for_window
 - set_desktop
 - get_desktop
-  - NOTE: doesn't work in KDE 6
 - set_num_desktops
+  - NOTE: doesn't work in KDE 6
 - get_num_desktops
 
 ## Won't support
 
-You can use `ydotool` for these:
+You can use `ydotool`, `dotool`, `wtype`, etc. for these:
 
 - Keyboard commands
 - Mouse commands
@@ -111,13 +112,13 @@ X11-specific:
 ## Unclear if we can support
 
 - selectwindow
-- getwindowfocus
-- windowfocus
-- windowmap
+- getwindowfocus: use `getactivewindow` instead?
+- windowfocus: use `windowactivate` instead?
 - windowlower
+- windowmap
+- windowunmap
 - windowquit
 - windowkill
-- windowunmap
 - set_desktop_viewport
 - get_desktop_viewport
 - exec

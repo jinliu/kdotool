@@ -72,7 +72,9 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                         let mut match_pid = false;
                         let mut pid = 0;
                         let mut match_desktop = false;
-                        let mut desktop = 0;
+                        let mut desktop: u32 = 0;
+                        let mut match_screen = false;
+                        let mut screen: u32 = 0;
                         let mut limit: u32 = 0;
                         let mut match_all = false;
                         while let Some(arg) = try_parse_option(parser) {
@@ -96,6 +98,10 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 Long("desktop") => {
                                     match_desktop = true;
                                     desktop = parser.value()?.parse()?;
+                                }
+                                Long("screen") => {
+                                    match_screen = true;
+                                    screen = parser.value()?.parse()?;
                                 }
                                 Long("limit") => {
                                     limit = parser.value()?.parse()?;
@@ -133,6 +139,8 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 "pid": pid,
                                 "match_desktop": match_desktop,
                                 "desktop": desktop,
+                                "match_screen": match_screen,
+                                "screen": screen,
                                 "limit": limit,
                             }),
                         )?);
