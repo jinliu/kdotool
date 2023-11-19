@@ -54,7 +54,7 @@ Options not in xdotool:
 
 - search
   - MISSING:
-    - --maxdepth: only toplevel windows supported in wayland
+    - --maxdepth: Can only manage toplevel windows in wayland, so no `depth` concept.
     - --onlyvisible
     - --sync
   - NOTE:
@@ -100,9 +100,17 @@ You can use `ydotool`, `dotool`, `wtype`, etc. for these:
 - Keyboard commands
 - Mouse commands
 
+KWin doesn't have such functionality:
+
+- set_desktop_viewport
+- get_desktop_viewport
+
+
 X11-specific:
 
 - windowreparent
+- windowmap
+- windowunmap
 
 ## Planned to support
 
@@ -115,12 +123,8 @@ X11-specific:
 - getwindowfocus: use `getactivewindow` instead?
 - windowfocus: use `windowactivate` instead?
 - windowlower
-- windowmap
-- windowunmap
 - windowquit
 - windowkill
-- set_desktop_viewport
-- get_desktop_viewport
 - exec
 - sleep
 - scripts
