@@ -121,7 +121,7 @@ pub const STEP_LAST_OUTPUT: &str = r#"
     }
 "#;
 
-pub const ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
+pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "getwindowname"         => "output_result(w.caption);",
     "getwindowclassname"    => "output_result(w.resourceClass);",
     "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
@@ -151,4 +151,23 @@ pub const ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
                 }
             }
             {{/if}}"#,
+};
+
+pub const STEP_GLOBAL_ACTION: &str = r#"
+    output_debug("STEP {{{step_name}}}")
+    {{{action}}}
+"#;
+
+pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
+    "get_desktop"           => r#"{{#if kde5}}output_result(workspace.currentDesktop);{{else}}output_result(workspace.currentDesktop.x11DesktopNumber);{{/if}}"#,
+    "set_desktop"           => r#"
+    {{#if kde5}}workspace.currentDesktop={{arg}};{{else}}
+    desktops = workspace.desktops;
+    for (var i=0; i<desktops.length; i++) {
+        if (desktops[i].x11DesktopNumber == {{arg}}) {
+            workspace.currentDesktop = desktops[i];
+            break;
+        }
+    }
+    {{/if}}"#,
 };

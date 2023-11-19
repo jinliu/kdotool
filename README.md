@@ -88,6 +88,8 @@ Options not in xdotool:
 - windowclose
 - set_desktop_for_window
 - get_desktop_for_window
+- set_desktop
+- get_desktop
 
 ## Won't support
 
@@ -106,8 +108,6 @@ X11-specific:
 - windowstate
 - set_num_desktops
 - get_num_desktops
-- set_desktop
-- get_desktop
 
 ## Unclear if we can support
 

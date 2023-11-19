@@ -151,7 +151,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                     }
 
                     _ => {
-                        if ACTIONS.contains_key(command.as_ref()) {
+                        if WINDOW_ACTIONS.contains_key(command.as_ref()) {
                             let mut opt_relative = false;
 
                             while let Some(arg) = try_parse_option(parser) {
@@ -199,7 +199,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         }
                                     }
                                     reg.render_template(
-                                        ACTIONS.get(command.as_ref()).unwrap(),
+                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
                                         &json!({
                                             "debug": context.debug,
                                             "kde5": context.kde5,
@@ -212,19 +212,19 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                     )?
                                 }
                                 "set_desktop_for_window" => {
-                                    let arg: String = parser.value()?.string()?;
+                                    let desktop_id: u32 = parser.value()?.parse()?;
                                     reg.render_template(
-                                        ACTIONS.get(command.as_ref()).unwrap(),
+                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
                                         &json!({
                                             "debug": context.debug,
                                             "kde5": context.kde5,
-                                            "arg": arg,
+                                            "arg": desktop_id,
                                         }),
                                     )?
                                 }
                                 _ => {
                                     reg.render_template(
-                                        ACTIONS.get(command.as_ref()).unwrap(),
+                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
                                         &render_context,
                                     )?
                                 }
@@ -265,6 +265,36 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 )?);
                             }
 
+                            last_step_is_query = false;
+                        } else if GLOBAL_ACTIONS.contains_key(command.as_ref()) {
+                            let action = match command.as_str() {
+                                "set_desktop" => {
+                                    let desktop_id: u32 = parser.value()?.parse()?;
+                                    reg.render_template(
+                                        GLOBAL_ACTIONS.get(command.as_ref()).unwrap(),
+                                        &json!({
+                                            "debug": context.debug,
+                                            "kde5": context.kde5,
+                                            "arg": desktop_id,
+                                        }),
+                                    )?
+                                }
+                                _ => {
+                                    reg.render_template(
+                                        GLOBAL_ACTIONS.get(command.as_ref()).unwrap(),
+                                        &render_context,
+                                    )?
+                                }
+                            };
+                            result.push_str(&reg.render_template(
+                                STEP_GLOBAL_ACTION,
+                                &json!({
+                                    "kde5": context.kde5,
+                                    "debug": context.debug,
+                                    "step_name": command,
+                                    "action": action,
+                                }),
+                            )?);
                             last_step_is_query = false;
                         } else {
                             return Err(anyhow!("Unknown command: {command}"));
@@ -467,7 +497,7 @@ pub fn help() {
     println!("  search <term>");
     println!("  getactivewindow");
     {
-        let mut actions: Vec<&&str> = templates::ACTIONS.keys().collect();
+        let mut actions: Vec<&&str> = templates::WINDOW_ACTIONS.keys().chain(templates::GLOBAL_ACTIONS.keys()).collect();
         actions.sort();
 
         for i in actions {
