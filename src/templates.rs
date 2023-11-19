@@ -170,4 +170,6 @@ pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
         }
     }
     {{/if}}"#,
+    "get_num_desktops"           => r#"{{#if kde5}}output_result(workspace.desktops);{{else}}output_result(workspace.desktops.length);{{/if}}"#,
+    "set_num_desktops"           => r#"{{#if kde5}}workspace.desktops={{arg}};{{else}}output_error("set_num_desktops unsupported in KDE 6){{/if}}"#,
 };

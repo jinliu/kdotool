@@ -268,7 +268,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                             last_step_is_query = false;
                         } else if GLOBAL_ACTIONS.contains_key(command.as_ref()) {
                             let action = match command.as_str() {
-                                "set_desktop" => {
+                                "set_desktop" | "set_num_desktops" => {
                                     let desktop_id: u32 = parser.value()?.parse()?;
                                     reg.render_template(
                                         GLOBAL_ACTIONS.get(command.as_ref()).unwrap(),

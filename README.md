@@ -90,6 +90,9 @@ Options not in xdotool:
 - get_desktop_for_window
 - set_desktop
 - get_desktop
+  - NOTE: doesn't work in KDE 6
+- set_num_desktops
+- get_num_desktops
 
 ## Won't support
 
@@ -106,8 +109,6 @@ X11-specific:
 
 - set_window
 - windowstate
-- set_num_desktops
-- get_num_desktops
 
 ## Unclear if we can support
 
