@@ -52,6 +52,8 @@ Options not in xdotool:
 
 ### Window Queries
 
+These commands generate a window stack that following _window action_ commands can refer to.
+
 - search
   - MISSING:
     - --maxdepth: Can only manage toplevel windows in wayland, so no `depth` concept.
@@ -62,6 +64,8 @@ Options not in xdotool:
 - getactivewindow
 
 ### Window Actions
+
+These commands either take a window-id argument, or use the window stack.
 
 - getwindowpid
 - getwindowname
@@ -87,6 +91,11 @@ Options not in xdotool:
 - windowclose
 - set_desktop_for_window
 - get_desktop_for_window
+
+### Global Actions
+
+These actions aren't targeting a specific window, but the whole desktop.
+
 - set_desktop
 - get_desktop
 - set_num_desktops
@@ -105,7 +114,6 @@ KWin doesn't have such functionality:
 - set_desktop_viewport
 - get_desktop_viewport
 
-
 X11-specific:
 
 - windowreparent
@@ -119,12 +127,20 @@ X11-specific:
 
 ## Unclear if we can support
 
+KWin has such functionality, but not exposed to the js API:
+
 - selectwindow
-- getwindowfocus: use `getactivewindow` instead?
-- windowfocus: use `windowactivate` instead?
 - windowlower
 - windowquit
 - windowkill
+
+No KWin API, and seems no corresponding concept in Wayland
+
+- getwindowfocus: use `getactivewindow` instead?
+- windowfocus: use `windowactivate` instead?
+
+Misc:
+
 - exec
 - sleep
 - scripts
