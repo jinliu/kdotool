@@ -14,7 +14,8 @@ the systemd journal, so you must be using systemd and have KWin running as a
 systemd user service (which is the default), for it to work.
 
 This program should work with both KDE 5 and the upcoming KDE 6. It should work
-with both Wayland and X11 sessions.
+with both Wayland and X11 sessions. (But you can use the original `xdotool` in
+X11, anyway. So this is mainly for Wayland.)
 
 Not all `xdotool` commands are supported. Some are not available through the KWin
 API. Some are even not possible, or have no corresponding concept, in Wayland.
