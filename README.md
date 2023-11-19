@@ -43,6 +43,11 @@ Options not in xdotool:
   later with `--remove`. This option is only valid with `--shortcut`.
 - --remove _name_ Remove a previously registered shortcut.
 
+## New Commands Not In xdotool
+
+- savewindowstack _name_ Save the current window stack to a variable
+- loadwindowstack _name_ Load a previously saved window stack
+
 ## Supported xdotool Commands
 
 ### Window Queries

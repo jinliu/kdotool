@@ -73,6 +73,16 @@ pub const STEP_GETACTIVEWINDOW: &str = r#"
     window_stack = [workspace.active{{#if kde5}}Client{{else}}Window{{/if}}];
 "#;
 
+pub const STEP_SAVEWINDOWSTACK: &str = r#"
+    output_debug("STEP savewindowstack")
+    window_stack_{{{name}}} = window_stack;
+"#;
+
+pub const STEP_LOADWINDOWSTACK: &str = r#"
+    output_debug("STEP loadwindowstack")
+    window_stack = window_stack_{{{name}}};
+"#;
+
 pub const STEP_ACTION_ON_WINDOW_ID: &str = r#"
     output_debug("STEP {{{step_name}}}")
     t = workspace.{{#if kde5}}client{{else}}window{{/if}}List();

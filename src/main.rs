@@ -134,6 +134,22 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                         last_step_is_query = true;
                     }
 
+                    "savewindowstack" | "loadwindowstack" => {
+                        let name = parser.value()?.string()?;
+                        result.push_str(&reg.render_template(
+                            if command == "savewindowstack" {
+                                STEP_SAVEWINDOWSTACK
+                            } else {
+                                STEP_LOADWINDOWSTACK
+                            },
+                            &json!({
+                                    "debug": context.debug,
+                                    "kde5": context.kde5,
+                                    "name": name,
+                            }),
+                        )?);
+                    }
+
                     _ => {
                         if ACTIONS.contains_key(command.as_ref()) {
                             let mut opt_relative = false;
