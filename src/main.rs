@@ -1,146 +1,14 @@
+mod templates;
+use templates::*;
+
 use std::io::Write;
 use std::process::Command;
 use std::time::Duration;
-use phf::phf_map;
+
+use anyhow::anyhow;
 use dbus::blocking::Connection;
-use tempfile::NamedTempFile;
-use handlebars::Handlebars;
+use lexopt::{Arg, Parser};
 use serde_json::json;
-use lexopt::{Parser, Arg};
-
-const SCRIPT_HEADER: &str = r#"
-print("{{{marker}}} START");
-
-function output_debug(message) {
-    {{#if debug}}
-    print("{{{marker}}} DEBUG", message);
-    {{/if}}
-}
-
-function output_error(message) {
-    print("{{{marker}}} ERROR", message);
-}
-
-function output_result(message) {
-    print("{{{marker}}} RESULT", message);
-}
-
-function run() {
-    var window_stack = [];
-"#;
-
-const SCRIPT_FOOTER: &str = r#"
-}
-
-{{#if shortcut}}
-registerShortcut("{{#if name}}{{{name}}}{{else}}{{{marker}}}{{/if}}", "{{{cmdline}}}", "{{{shortcut}}}", run);
-{{else}}
-run();
-{{/if}}
-
-print("{{{marker}}} FINISH");
-"#;
-
-const STEP_SEARCH : &str = r#"
-    output_debug("STEP search {{{search_term}}}")
-    const re = new RegExp("{{{search_term}}}", "i");
-    t = workspace.{{#if kde5}}client{{else}}window{{/if}}List();
-    window_stack = [];
-    for (var i=0; i<t.length; i++) {
-        var w = t[i];
-        if ({{#if match_all}}true{{else}}false{{/if}}
-            {{#if match_class}}
-            {{#if match_all}}&&{{else}}||{{/if}}
-            w.resourceClass.search(re) >= 0
-            {{/if}}
-            {{#if match_classname}}
-            {{#if match_all}}&&{{else}}||{{/if}}
-            w.resourceName.search(re) >= 0
-            {{/if}}
-            {{#if match_role}}
-            {{#if match_all}}&&{{else}}||{{/if}}
-            w.windowRole.search(re) >= 0
-            {{/if}}
-            {{#if match_name}}
-            {{#if match_all}}&&{{else}}||{{/if}}
-            w.caption.search(re) >= 0
-            {{/if}}
-            {{#if match_pid}}
-            {{#if match_all}}&&{{else}}||{{/if}}
-            w.pid == {{{match_pid}}}
-            {{/if}}
-        ) {
-            window_stack.push(w);
-            if ({{{limit}}} > 0 && window_stack.length >= {{{limit}}}) {
-                break;
-            }
-        }
-    }
-"#;
-
-const STEP_GETACTIVEWINDOW : &str = r#"
-    output_debug("STEP getactivewindow")
-    window_stack = [workspace.active{{#if kde5}}Client{{else}}Window{{/if}}];
-"#;
-
-const STEP_ACTION_ON_WINDOW_ID : &str = r#"
-    output_debug("STEP {{{step_name}}}")
-    t = workspace.{{#if kde5}}client{{else}}window{{/if}}List();
-    for (var i=0; i<t.length; i++) {
-        var w = t[i];
-        if (w.internalId == "{{{window_id}}}") {
-            {{{action}}}
-            break;
-        }
-    }
-"#;
-
-const STEP_ACTION_ON_STACK_ITEM : &str = r#"
-    output_debug("STEP {{{step_name}}}")
-    if (window_stack.length > 0) {
-        if ({{{item_index}}} > window_stack.length || {{{item_index}}} < 1) {
-            output_error("Invalid window stack selection '{{{item_index}}}' (out of range)");
-        } else {
-            var w = window_stack[{{{item_index}}}-1];
-            {{{action}}}
-        }
-    }
-"#;
-
-const STEP_ACTION_ON_STACK_ALL : &str = r#"
-    output_debug("STEP {{{step_name}}}")
-    for (var i=0; i<window_stack.length; i++) {
-        var w = window_stack[i];
-        {{{action}}}
-    }
-"#;
-
-const STEP_LAST_OUTPUT : &str = r#"
-    for (var i = 0; i < window_stack.length; ++i) {
-        output_result(window_stack[i].internalId);
-    }
-"#;
-
-static ACTIONS: phf::Map<&'static str, &'static str> = phf_map! {
-    "getwindowname" => "output_result(w.caption);",
-    "getwindowclassname" => "output_result(w.resourceClass);",
-    "getwindowgeometry" => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
-    "getwindowpid" => "output_result(w.pid);",
-    "windowminimize" => "w.minimized = true;",
-    "windowraise" => r#"{{#if kde5}}output_error("windowraise unsupported in KDE 5");{{else}}workspace.raiseWindow(w);{{/if}}"#,
-    "windowclose" => "w.closeWindow();",
-    "windowactivate" => "workspace.active{{#if kde5}}Client{{else}}Window{{/if}} = w;",
-    "windowsize" => r#"
-            let q = Object.assign({}, w.frameGeometry);
-            {{#if x}}q.width={{{x}}};{{/if}}
-            {{#if y}}q.height={{{y}}};{{/if}}
-            w.frameGeometry = q;
-"#,
-    "windowmove" => r#"
-            {{#if x}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
-            {{#if y}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
-"#,
-};
 
 struct Context {
     cmdline: String,
@@ -153,33 +21,35 @@ struct Context {
     remove: bool,
 }
 
-fn try_parse_option(cmdline : &mut Parser) -> Option<Arg> {
-    let s : String = cmdline.try_raw_args()?.peek()?.to_str().unwrap().into();
+fn try_parse_option(parser: &mut Parser) -> Option<Arg> {
+    let s = parser.try_raw_args()?.peek()?.to_str().unwrap().to_string();
     if s.starts_with("-") {
-        let next_char = s.chars().nth(1).unwrap();
-        if char::is_alphabetic(next_char) || next_char == '-' {
-            return Some(cmdline.next().unwrap().unwrap());
+        let next_char = s.chars().nth(1)?;
+        if next_char.is_ascii_alphabetic() || next_char == '-' {
+            return parser.next().unwrap();
         }
     }
-    return None;
+    None
 }
 
-fn try_parse_window_id(cmdline : &mut Parser) -> Option<String> {
-    let s : String = cmdline.try_raw_args()?.peek()?.to_str().unwrap().into();
+fn try_parse_window_id(parser: &mut Parser) -> Option<String> {
+    let mut raw = parser.try_raw_args()?;
+    let s = raw.peek()?.to_str().unwrap().to_string();
     if s.starts_with("%") || s.starts_with("{") {
-        return Some(cmdline.value().unwrap().to_str().unwrap().into());
+        _ = raw.next();
+        return Some(s);
     }
-    return None;
+    None
 }
 
-fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<String> {
+fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<String> {
     let mut result = String::new();
-    let reg = Handlebars::new();
+    let reg = handlebars::Handlebars::new();
     let render_context = json!({
         "cmdline": context.cmdline,
-        "marker": context.marker,
-        "kde5": context.kde5,
         "debug": context.debug,
+        "kde5": context.kde5,
+        "marker": context.marker,
         "name": context.name,
         "shortcut": context.shortcut,
     });
@@ -188,11 +58,11 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
 
     let mut last_step_is_query = false;
 
-    while let Some(arg) = cmdline.next()? {
+    while let Some(arg) = parser.next()? {
         use lexopt::prelude::*;
         match arg {
             Value(val) => {
-                let command : String = val.to_str().unwrap().into();
+                let command: String = val.to_str().unwrap().into();
                 match command.as_ref() {
                     "search" => {
                         let mut match_class = false;
@@ -200,36 +70,36 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                         let mut match_role = false;
                         let mut match_name = false;
                         let mut match_pid = -1;
-                        let mut limit : u32 = 0;
+                        let mut limit: u32 = 0;
                         let mut match_all = false;
-                        while let Some(arg) = try_parse_option(cmdline) {
+                        while let Some(arg) = try_parse_option(parser) {
                             match arg {
                                 Long("class") => {
                                     match_class = true;
-                                },
+                                }
                                 Long("classname") => {
                                     match_classname = true;
-                                },
+                                }
                                 Long("role") => {
                                     match_role = true;
-                                },
+                                }
                                 Long("name") => {
                                     match_name = true;
-                                },
+                                }
                                 Long("pid") => {
-                                    match_pid = cmdline.value()?.parse()?;
-                                },
+                                    match_pid = parser.value()?.parse()?;
+                                }
                                 Long("limit") => {
-                                    limit = cmdline.value()?.parse()?;
-                                },
+                                    limit = parser.value()?.parse()?;
+                                }
                                 Long("all") => {
                                     match_all = true;
-                                },
+                                }
                                 Long("any") => {
                                     match_all = false;
-                                },
+                                }
                                 _ => {
-                                    return Err(anyhow::anyhow!("Unknown option"));
+                                    return Err(arg.unexpected().into());
                                 }
                             }
                         }
@@ -239,58 +109,48 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                             match_role = true;
                             match_name = true;
                         }
-                        let arg = cmdline.next()?.unwrap();
-                        match arg {
-                            Value(val) => {
-                                let search_term : String = val.to_str().unwrap().into();
-                                result.push_str(
-                                    &reg.render_template(STEP_SEARCH,
-                                    &json!({
-                                        "kde5": context.kde5,
-                                        "debug": context.debug,
-                                        "search_term": search_term,
-                                        "match_all": match_all,
-                                        "match_class": match_class,
-                                        "match_classname": match_classname,
-                                        "match_role": match_role,
-                                        "match_name": match_name,
-                                        "match_pid": match_pid,
-                                        "limit": limit,
-                                    }))?);
-                                last_step_is_query = true;
-                            },
-                            _ => {
-                                return Err(anyhow::anyhow!("Missing search term"));
-                            }
-                        }
-                    },
+                        let search_term: String = parser.value()?.to_str().unwrap().into();
+                        result.push_str(&reg.render_template(
+                            STEP_SEARCH,
+                            &json!({
+                                "debug": context.debug,
+                                "kde5": context.kde5,
+                                "search_term": search_term,
+                                "match_all": match_all,
+                                "match_class": match_class,
+                                "match_classname": match_classname,
+                                "match_role": match_role,
+                                "match_name": match_name,
+                                "match_pid": match_pid,
+                                "limit": limit,
+                            }),
+                        )?);
+                        last_step_is_query = true;
+                    }
 
                     "getactivewindow" => {
-                        result.push_str(
-                            &reg.render_template(STEP_GETACTIVEWINDOW,
-                            &render_context)?);
+                        result
+                            .push_str(&reg.render_template(STEP_GETACTIVEWINDOW, &render_context)?);
                         last_step_is_query = true;
-                    },
+                    }
 
                     _ => {
                         if ACTIONS.contains_key(command.as_ref()) {
                             let mut opt_relative = false;
 
-                            while let Some(arg) = try_parse_option(cmdline) {
+                            while let Some(arg) = try_parse_option(parser) {
                                 match arg {
                                     Long("relative") => {
                                         opt_relative = true;
                                     }
                                     _ => {
-                                        return Err(anyhow::anyhow!("Unexpected option"));
+                                        return Err(arg.unexpected().into());
                                     }
                                 }
                             }
 
-                            let mut window_id = "%1".to_string();
-                            if let Some(arg) = try_parse_window_id(cmdline) {
-                                window_id = arg;
-                            }
+                            let window_id =
+                                try_parse_window_id(parser).unwrap_or(String::from("%1"));
                             let mut action = String::new();
 
                             if command == "windowmove" || command == "windowsize" {
@@ -298,25 +158,25 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                 let mut y = String::new();
                                 let mut x_percent = String::new();
                                 let mut y_percent = String::new();
-                                let arg : String = cmdline.value()?.to_str().unwrap().into();
+                                let arg: String = parser.value()?.to_str().unwrap().into();
                                 if arg != "x" {
                                     if arg.ends_with("%") {
-                                        let s = arg[..arg.len()-1].to_string();
-                                        _ = s.parse::<i32>()?; 
+                                        let s = arg[..arg.len() - 1].to_string();
+                                        _ = s.parse::<i32>()?;
                                         x_percent = s;
-                                        return Err(anyhow::anyhow!("Relative positioning is not supported yet: {}%", x_percent));
+                                        return Err(anyhow!("Relative positioning is not supported yet: {x_percent}%"));
                                     } else {
                                         _ = arg.parse::<i32>()?;
                                         x = arg;
                                     }
                                 }
-                                let arg : String = cmdline.value()?.to_str().unwrap().into();
+                                let arg: String = parser.value()?.to_str().unwrap().into();
                                 if arg != "y" {
                                     if arg.ends_with("%") {
-                                        let s = arg[..arg.len()-1].to_string();
-                                        _ = s.parse::<i32>()?; 
-                                        y_percent = s;                           
-                                        return Err(anyhow::anyhow!("Relative positioning is not supported yet: {}%", y_percent));
+                                        let s = arg[..arg.len() - 1].to_string();
+                                        _ = s.parse::<i32>()?;
+                                        y_percent = s;
+                                        return Err(anyhow!("Relative positioning is not supported yet: {y_percent}%"));
                                     } else {
                                         _ = arg.parse::<i32>()?;
                                         y = arg;
@@ -325,8 +185,8 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                 action = reg.render_template(
                                     ACTIONS.get(command.as_ref()).unwrap(),
                                     &json!({
-                                        "kde5": context.kde5,
                                         "debug": context.debug,
+                                        "kde5": context.kde5,
                                         "step_name": command,
                                         "action": action,
                                         "x": x,
@@ -334,11 +194,13 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                         "y": y,
                                         "y_percent": y_percent,
                                         "relative": opt_relative,
-                                    }))?;
+                                    }),
+                                )?;
                             } else {
                                 action = reg.render_template(
-                                        ACTIONS.get(command.as_ref()).unwrap(),
-                                        &render_context)?;
+                                    ACTIONS.get(command.as_ref()).unwrap(),
+                                    &render_context,
+                                )?;
                             }
 
                             if window_id == "%@" {
@@ -349,7 +211,8 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                         "debug": context.debug,
                                         "step_name": command,
                                         "action": action,
-                                    }))?);
+                                    }),
+                                )?);
                             } else if window_id.starts_with("%") {
                                 let index = window_id[1..].parse::<i32>()?;
                                 result.push_str(&reg.render_template(
@@ -360,7 +223,8 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                         "step_name": command,
                                         "action": action,
                                         "item_index": index,
-                                    }))?);
+                                    }),
+                                )?);
                             } else {
                                 result.push_str(&reg.render_template(
                                     STEP_ACTION_ON_WINDOW_ID,
@@ -370,31 +234,28 @@ fn generate_script(context : &Context, cmdline : &mut Parser) -> anyhow::Result<
                                         "step_name": command,
                                         "action": action,
                                         "window_id": window_id
-                                    }))?);
+                                    }),
+                                )?);
                             }
 
                             last_step_is_query = false;
                         } else {
-                            return Err(anyhow::anyhow!("Unknown command: {}", command));
+                            return Err(anyhow!("Unknown command: {command}"));
                         }
                     }
                 }
-            },
+            }
             _ => {
-                return Err(anyhow::anyhow!("Unexpected option"));
+                return Err(arg.unexpected().into());
             }
         }
     }
 
     if last_step_is_query {
-        result.push_str(&reg.render_template(
-            STEP_LAST_OUTPUT,
-            &render_context)?);
+        result.push_str(&reg.render_template(STEP_LAST_OUTPUT, &render_context)?);
     }
 
-    result.push_str(&reg.render_template(
-        SCRIPT_FOOTER,
-        &render_context)?);
+    result.push_str(&reg.render_template(SCRIPT_FOOTER, &render_context)?);
 
     Ok(result)
 }
@@ -410,46 +271,43 @@ fn main() -> anyhow::Result<()> {
         name: String::new(),
         remove: false,
     };
-    let mut cmdline = Parser::from_env();
+    let mut parser = Parser::from_env();
 
-    match std::env::var("KDE_SESSION_VERSION") {
-        Ok(version) => {
-            if version == "5" {
-                context.kde5 = true;
-            }
-        },
-        Err(_) => {},
+    if let Ok(version) = std::env::var("KDE_SESSION_VERSION") {
+        if version == "5" {
+            context.kde5 = true;
+        }
     }
 
     // Parse global options
-    if cmdline.try_raw_args().unwrap().peek().is_none() {
+    if parser.raw_args()?.peek().is_none() {
         help();
         return Ok(());
     }
 
-    while let Some(arg) = try_parse_option(&mut cmdline) {
+    while let Some(arg) = try_parse_option(&mut parser) {
         use lexopt::prelude::*;
         match arg {
             Short('h') | Long("help") => {
                 help();
                 return Ok(());
-            },
+            }
             Short('d') | Long("debug") => {
                 context.debug = true;
-            },
+            }
             Short('n') | Long("dry-run") => {
                 context.dry_run = true;
-            },
+            }
             Long("shortcut") => {
-                context.shortcut = cmdline.value()?.to_str().unwrap().into();
-            },
+                context.shortcut = parser.value()?.to_str().unwrap().into();
+            }
             Long("name") => {
-                context.name = cmdline.value()?.to_str().unwrap().into();
-            },
+                context.name = parser.value()?.to_str().unwrap().into();
+            }
             Long("remove") => {
                 context.remove = true;
-                context.name = cmdline.value()?.to_str().unwrap().into();
-            },
+                context.name = parser.value()?.to_str().unwrap().into();
+            }
             _ => {
                 return Err(arg.unexpected().into());
             }
@@ -457,7 +315,14 @@ fn main() -> anyhow::Result<()> {
     }
 
     env_logger::Builder::from_default_env()
-        .filter(Some("kdotool"), if context.debug { log::LevelFilter::Debug } else { log::LevelFilter::Info })
+        .filter(
+            Some("kdotool"),
+            if context.debug {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            },
+        )
         .init();
 
     if context.remove {
@@ -468,12 +333,18 @@ fn main() -> anyhow::Result<()> {
     }
 
     log::debug!("===== Generate KWin script =====");
-    let mut script_file = NamedTempFile::with_prefix("kdotool-")?;
-    context.marker = script_file.path().file_name().unwrap().to_str().unwrap().into();
+    let mut script_file = tempfile::NamedTempFile::with_prefix("kdotool-")?;
+    context.marker = script_file
+        .path()
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .into();
 
-    let script_contents = generate_script(&context, &mut cmdline)?;
+    let script_contents = generate_script(&context, &mut parser)?;
 
-    log::debug!("Script:{}", script_contents);
+    log::debug!("Script:{script_contents}");
     script_file.write_all(script_contents.as_bytes())?;
     let script_file_path = script_file.into_temp_path();
 
@@ -485,19 +356,31 @@ fn main() -> anyhow::Result<()> {
     log::debug!("===== Load script into KWin =====");
     let conn = Connection::new_session()?;
     let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
-    let script_id : i32;
+    let script_id: i32;
     (script_id,) = kwin_proxy.method_call(
         "org.kde.kwin.Scripting",
         "loadScript",
-        (script_file_path.to_str().unwrap(), if context.name.is_empty() {context.marker} else {context.name}))?;
-    log::debug!("Script ID: {}", script_id);
+        (
+            script_file_path.to_str().unwrap(),
+            if context.name.is_empty() {
+                context.marker
+            } else {
+                context.name
+            },
+        ),
+    )?;
+    log::debug!("Script ID: {script_id}");
 
     log::debug!("===== Run script =====");
-    let script_proxy = if context.kde5 {
-        conn.with_proxy("org.kde.KWin", format!("/{}", script_id), Duration::from_millis(5000))
-    } else {
-        conn.with_proxy("org.kde.KWin", format!("/Scripting/Script{}", script_id), Duration::from_millis(5000))
-    };
+    let script_proxy = conn.with_proxy(
+        "org.kde.KWin",
+        if context.kde5 {
+            format!("/{script_id}")
+        } else {
+            format!("/Scripting/Script{script_id}")
+        },
+        Duration::from_millis(5000),
+    );
     let start_time = chrono::Local::now();
     script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
     if context.shortcut.is_empty() {
@@ -505,7 +388,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     let journal = Command::new("journalctl")
-        .arg(format!("--since={}", start_time.format("%Y-%m-%d %H:%M:%S")))
+        .arg(format!(
+            "--since={}",
+            start_time.format("%Y-%m-%d %H:%M:%S")
+        ))
         .arg("--user")
         .arg("--unit=plasma-kwin_wayland.service")
         .arg("--unit=plasma-kwin_x11.service")
@@ -515,7 +401,10 @@ fn main() -> anyhow::Result<()> {
     log::debug!("KWin log from the systemd journal:\n{}", output.trim_end());
 
     log::debug!("===== Output =====");
-    let script_marker = &format!("js: {} ", script_file_path.file_name().unwrap().to_str().unwrap());
+    let script_marker = &format!(
+        "js: {} ",
+        script_file_path.file_name().unwrap().to_str().unwrap()
+    );
     for line in output.lines() {
         if line.starts_with(script_marker) {
             let t = &line[script_marker.len()..];
@@ -532,26 +421,30 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn help() {
+pub fn help() {
     println!("Usage: kdotool [options] <command> [args...]");
     println!();
     println!("Options:");
     println!("  -h, --help                 Show this help");
     println!("  -d, --debug                Enable debug output");
-    println!("  -n, --dry-run              Don't actually run the script. Just print it to stdout.");
+    println!(
+        "  -n, --dry-run              Don't actually run the script. Just print it to stdout."
+    );
     println!("  --shortcut <shortcut>      Register a shortcut to run the script.");
-    println!("    --name <name>            Set a name for the shortcut, so you can remove it later.");
+    println!(
+        "    --name <name>            Set a name for the shortcut, so you can remove it later."
+    );
     println!("  --remove <name>            Remove a previously registered shortcut.");
     println!();
     println!("Commands:");
     println!("  search <term>");
     println!("  getactivewindow");
     {
-        let mut actions : Vec<&&str> = ACTIONS.keys().collect();
+        let mut actions: Vec<&&str> = templates::ACTIONS.keys().collect();
         actions.sort();
 
         for i in actions {
-            println!("  {} <window>", i);
+            println!("  {i} <window>");
         }
     }
     println!();

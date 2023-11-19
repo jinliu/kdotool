@@ -8,8 +8,8 @@ solves the input part by talking directly to the kernel input device. However,
 for the window control part, you have to use each Wayland compositor's own APIs.
 
 This program uses KWin's scripting API to control windows. In each invocation,
-it generates a KWin script on-the-fly, load it into KWin, runs it, and then
-delete it, using KWin's DBus interface. It collects output of the script from
+it generates a KWin script on-the-fly, loads it into KWin, runs it, and then
+deletes it, using KWin's DBus interface. It collects output of the script from
 the systemd journal, so you must be using systemd and have KWin running as a
 systemd user service (which is the default), for it to work.
 
