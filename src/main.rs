@@ -241,12 +241,10 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         }),
                                     )?
                                 }
-                                _ => {
-                                    reg.render_template(
-                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
-                                        &render_context,
-                                    )?
-                                }
+                                _ => reg.render_template(
+                                    WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
+                                    &render_context,
+                                )?,
                             };
 
                             if window_id == "%@" {
@@ -298,12 +296,10 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         }),
                                     )?
                                 }
-                                _ => {
-                                    reg.render_template(
-                                        GLOBAL_ACTIONS.get(command.as_ref()).unwrap(),
-                                        &render_context,
-                                    )?
-                                }
+                                _ => reg.render_template(
+                                    GLOBAL_ACTIONS.get(command.as_ref()).unwrap(),
+                                    &render_context,
+                                )?,
                             };
                             result.push_str(&reg.render_template(
                                 STEP_GLOBAL_ACTION,
@@ -518,7 +514,10 @@ pub fn help() {
     println!("  search <term>");
     println!("  getactivewindow");
     {
-        let mut actions: Vec<&&str> = templates::WINDOW_ACTIONS.keys().chain(templates::GLOBAL_ACTIONS.keys()).collect();
+        let mut actions: Vec<&&str> = templates::WINDOW_ACTIONS
+            .keys()
+            .chain(templates::GLOBAL_ACTIONS.keys())
+            .collect();
         actions.sort();
 
         for i in actions {
