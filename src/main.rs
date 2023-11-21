@@ -471,6 +471,8 @@ fn main() -> anyhow::Result<()> {
         .arg("--user")
         .arg("--unit=plasma-kwin_wayland.service")
         .arg("--unit=plasma-kwin_x11.service")
+        .arg("QT_CATEGORY=js")
+        .arg("QT_CATEGORY=kwin_scripting")
         .arg("--output=cat")
         .output()?;
     let output = String::from_utf8(journal.stdout)?;
