@@ -18,8 +18,7 @@ with both Wayland and X11 sessions. (But you can use the original `xdotool` in
 X11, anyway. So this is mainly for Wayland.)
 
 Not all `xdotool` commands are supported. Some are not available through the KWin
-API. Some are even not possible, or have no corresponding concept, in Wayland.
-See below for details.
+API. Some might be not even possible in Wayland. See below for details.
 
 Please refer to [xdotool documentation](https://github.com/jordansissel/xdotool/blob/master/xdotool.pod)
 for the usage of each command.
@@ -136,9 +135,6 @@ KWin has such functionality, but not exposed to the js API:
 - windowlower
 - windowquit
 - windowkill
-
-No KWin API, and seems no corresponding concept in Wayland
-
 - getwindowfocus: use `getactivewindow` instead?
 - windowfocus: use `windowactivate` instead?
 
