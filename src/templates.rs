@@ -15,6 +15,50 @@ function output_result(message) {
     print("{{{marker}}} RESULT", message);
 }
 
+{{#if kde5}}
+workspace_windowList                  = () => workspace.clientList();
+workspace_activeWindow                = () => workspace.activeClient;
+workspace_setActiveWindow             = (window) => { workspace.activeClient = window; };
+workspace_raiseWindow                 = (window) => { output_error("`windowraise` unsupported in KDE 5"); };
+workspace_currentDesktop              = () => workspace.currentDesktop;
+workspace_setCurrentDesktop           = (desktop) => { workspace.currentDesktop = desktop; };
+workspace_numDesktops                 = () => workspace.desktops;
+workspace_setNumDesktops              = (n) => { workspace.desktops = n };
+window_x11DesktopIds                  = (window) => window.x11DesktopIds;
+window_setX11DesktopId                = (window, id) => { window.desktop = id; };
+window_screen                         = (window) => window.screen;
+{{else}}
+workspace_windowList                  = () => workspace.windowList();
+workspace_activeWindow                = () => workspace.activeWindow;
+workspace_setActiveWindow             = (window) => { workspace.activeWindow = window; };
+workspace_raiseWindow                 = (window) => { workspace.raiseWindow(w); };
+workspace_currentDesktop              = () => workspace.currentDesktop.x11DesktopNumber;
+workspace_setCurrentDesktop           = (id) => {
+    let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
+    if (d) {
+        workspace.currentDesktop = d;
+    } else {
+        output_error("Invalid desktop number '{{{id}}}'");
+    }
+};
+workspace_numDesktops                 = () => workspace.desktops.length;
+workspace_setNumDesktops              = (n) => { output_error("`set_num_desktops` unsupported in KDE 6"); };
+window_x11DesktopIds                  = (window) => workspace.desktops.map((d) => d.x11DesktopId);
+window_setX11DesktopId                = (window, id) => {
+    if (id == -1)
+        w.desktops = workspace.desktops;
+    else {
+        let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
+        if (d) {
+            w.desktops = [d];
+        } else {
+            output_error(`Invalid desktop number ${id}`);
+        }
+    }
+};
+window_screen                         = (window) => { output_error("`search --screen` unsupported in KDE 6"); };
+{{/if}}
+
 function run() {
     var window_stack = [];
 "#;
@@ -34,10 +78,10 @@ print("{{{marker}}} FINISH");
 pub const STEP_SEARCH: &str = r#"
     output_debug("STEP search {{{search_term}}}")
     const re = new RegExp("{{{search_term}}}", "i");
-    t = workspace.{{#if kde5}}client{{else}}window{{/if}}List();
+    var t = workspace_windowList();
     window_stack = [];
     for (var i=0; i<t.length; i++) {
-        var w = t[i];
+        let w = t[i];
         if ({{#if match_all}}true{{else}}false{{/if}}
             {{#if match_class}}
             {{#if match_all}}&&{{else}}||{{/if}}
@@ -61,21 +105,11 @@ pub const STEP_SEARCH: &str = r#"
             {{/if}}
         ) {
             {{#if match_desktop}}
-            {{#if kde5}}if (w.desktop != {{{desktop}}}) break;{{else}}
-            desktops = w.desktops;
-            found = false;
-            for (var j=0; j<desktops.length; j++) {
-                if (desktops[j].x11DesktopNumber == {{{desktop}}}) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-                break;
-            {{/if}}
+            if (window_x11DesktopIds(w).indexOf({{{desktop}}}) < 0) break;
             {{/if}}
             {{#if match_screen}}
-            {{#if kde5}}if (w.screen != {{{screen}}}) break;{{else}}output_error("search --screen unsupported in KDE 6");{{/if}}{{/if}}
+            if (window_screen(w) != {{{screen}}}) break;
+            {{/if}}
             window_stack.push(w);
             if ({{{limit}}} > 0 && window_stack.length >= {{{limit}}}) {
                 break;
@@ -86,24 +120,24 @@ pub const STEP_SEARCH: &str = r#"
 
 pub const STEP_GETACTIVEWINDOW: &str = r#"
     output_debug("STEP getactivewindow")
-    window_stack = [workspace.active{{#if kde5}}Client{{else}}Window{{/if}}];
+    var window_stack = [workspace_activeWindow()];
 "#;
 
 pub const STEP_SAVEWINDOWSTACK: &str = r#"
     output_debug("STEP savewindowstack")
-    window_stack_{{{name}}} = window_stack;
+    var window_stack_{{{name}}} = window_stack;
 "#;
 
 pub const STEP_LOADWINDOWSTACK: &str = r#"
     output_debug("STEP loadwindowstack")
-    window_stack = window_stack_{{{name}}};
+    var window_stack = window_stack_{{{name}}};
 "#;
 
 pub const STEP_ACTION_ON_WINDOW_ID: &str = r#"
     output_debug("STEP {{{step_name}}}")
-    t = workspace.{{#if kde5}}client{{else}}window{{/if}}List();
+    var t = workspace_windowList();
     for (var i=0; i<t.length; i++) {
-        var w = t[i];
+        let w = t[i];
         if (w.internalId == "{{{window_id}}}") {
             {{{action}}}
             break;
@@ -117,7 +151,7 @@ pub const STEP_ACTION_ON_STACK_ITEM: &str = r#"
         if ({{{item_index}}} > window_stack.length || {{{item_index}}} < 1) {
             output_error("Invalid window stack selection '{{{item_index}}}' (out of range)");
         } else {
-            var w = window_stack[{{{item_index}}}-1];
+            let w = window_stack[{{{item_index}}}-1];
             {{{action}}}
         }
     }
@@ -126,7 +160,7 @@ pub const STEP_ACTION_ON_STACK_ITEM: &str = r#"
 pub const STEP_ACTION_ON_STACK_ALL: &str = r#"
     output_debug("STEP {{{step_name}}}")
     for (var i=0; i<window_stack.length; i++) {
-        var w = window_stack[i];
+        let w = window_stack[i];
         {{{action}}}
     }
 "#;
@@ -140,12 +174,12 @@ pub const STEP_LAST_OUTPUT: &str = r#"
 pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "getwindowname"         => "output_result(w.caption);",
     "getwindowclassname"    => "output_result(w.resourceClass);",
-    "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}{{#if kde5}} (screen: ${w.screen}){{/if}}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
+    "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}{{#if kde5}} (screen: ${window_screen(w)}){{/if}}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
     "getwindowpid"          => "output_result(w.pid);",
     "windowminimize"        => "w.minimized = true;",
-    "windowraise"           => r#"{{#if kde5}}output_error("windowraise unsupported in KDE 5");{{else}}workspace.raiseWindow(w);{{/if}}"#,
+    "windowraise"           => "workspace_raiseWindow(w);",
     "windowclose"           => "w.closeWindow();",
-    "windowactivate"        => "workspace.active{{#if kde5}}Client{{else}}Window{{/if}} = w;",
+    "windowactivate"        => "workspace_setActiveWindow(w);",
     "windowsize"            => r#"
             output_debug(`Window: ${w.frameGeometry}`);
             output_debug(`Screen: ${workspace.virtualScreenSize}`);
@@ -164,18 +198,9 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
             {{#if x}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
             {{#if y}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
 "#,
-    "windowstate"           => r#"{{{windowstate}}}"#,
-    "get_desktop_for_window"=> r#"{{#if kde5}}output_result(w.desktop);{{else}}output_result(w.desktops[0].x11DesktopNumber);{{/if}}"#,
-    "set_desktop_for_window"=> r#"
-            {{#if kde5}}w.desktop={{{arg}}};{{else}}
-            desktops = workspace.desktops;
-            for (var j=0; j<desktops.length; j++) {
-                if (desktops[j].x11DesktopNumber == {{{arg}}}) {
-                    w.desktops = [desktops[j]];
-                    break;
-                }
-            }
-            {{/if}}"#,
+    "windowstate"           => "{{{windowstate}}}",
+    "get_desktop_for_window"=> "output_result(window_x11DesktopIds(w)[0]);",
+    "set_desktop_for_window"=> "window_setX11DesktopId(w, {{{arg}}})",
 };
 
 pub const WINDOWSTATE_PROPERTIES: phf::Map<&'static str, &'static str> = phf::phf_map! {
@@ -194,17 +219,8 @@ pub const STEP_GLOBAL_ACTION: &str = r#"
 "#;
 
 pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
-    "get_desktop"           => r#"{{#if kde5}}output_result(workspace.currentDesktop);{{else}}output_result(workspace.currentDesktop.x11DesktopNumber);{{/if}}"#,
-    "set_desktop"           => r#"
-    {{#if kde5}}workspace.currentDesktop={{{arg}}};{{else}}
-    desktops = workspace.desktops;
-    for (var i=0; i<desktops.length; i++) {
-        if (desktops[i].x11DesktopNumber == {{{arg}}}) {
-            workspace.currentDesktop = desktops[i];
-            break;
-        }
-    }
-    {{/if}}"#,
-    "get_num_desktops"           => r#"{{#if kde5}}output_result(workspace.desktops);{{else}}output_result(workspace.desktops.length);{{/if}}"#,
-    "set_num_desktops"           => r#"{{#if kde5}}workspace.desktops={{{arg}}};{{else}}output_error("set_num_desktops unsupported in KDE 6){{/if}}"#,
+    "get_desktop"           => "output_result(workspace_currentDesktop());",
+    "set_desktop"           => "workspace_setCurrentDesktop({{{arg}}});",
+    "get_num_desktops"           => "workspace_numDesktops();",
+    "set_num_desktops"           => "workspace_setNumDesktops({{{arg}}})",
 };
