@@ -29,6 +29,7 @@ a X11 window id.
 ## Global Options
 
 - --help Show help.
+- --version Show version.
 
 Options not in xdotool:
 

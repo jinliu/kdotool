@@ -419,6 +419,10 @@ fn main() -> anyhow::Result<()> {
                 help();
                 return Ok(());
             }
+            Short('v') | Long("version") => {
+                println!("kdotool v{}", env!("CARGO_PKG_VERSION"));
+                return Ok(());
+            }
             Short('d') | Long("debug") => {
                 context.debug = true;
             }
@@ -572,6 +576,7 @@ pub fn help() {
     println!();
     println!("Options:");
     println!("  -h, --help                 Show this help");
+    println!("  -v, --version              Show program version");
     println!("  -d, --debug                Enable debug output");
     println!(
         "  -n, --dry-run              Don't actually run the script. Just print it to stdout."
