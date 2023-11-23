@@ -10,9 +10,7 @@ for the window control part, you have to use each Wayland compositor's own APIs.
 
 This program uses KWin's scripting API to control windows. In each invocation,
 it generates a KWin script on-the-fly, loads it into KWin, runs it, and then
-deletes it, using KWin's DBus interface. It collects output of the script from
-the systemd journal, so you must be using systemd and have KWin running as a
-systemd user service (which is the default), for it to work.
+deletes it, using KWin's DBus interface.
 
 This program should work with both KDE 5 and the upcoming KDE 6. It should work
 with both Wayland and X11 sessions. (But you can use the original `xdotool` in
