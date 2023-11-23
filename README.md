@@ -28,27 +28,27 @@ a X11 window id.
 
 ## Global Options
 
-- --help Show help.
-- --version Show version.
+- `--help` Show help.
+- `--version` Show version.
 
 Options not in xdotool:
 
-- --dry-run Just print the generated KWin script. Don't run it.
-- --debug Print debug messages.
-- --shortcut _shortcut_ Specify a shortcut to run the generated KWin script.
+- `--dry-run` Just print the generated KWin script. Don't run it.
+- `--debug` Print debug messages.
+- `--shortcut _shortcut_` Specify a shortcut to run the generated KWin script.
   The shortcut must be in the format of `modifier+key`, e.g. `Alt+Shift+X`.
   The shortcut will be registered in KWin. The script is not run immediately.
   You must press the shortcut to run it.
-  - --name _name_ Specify a name for the shortcut, So you can remove it
+  - `--name _name_` Specify a name for the shortcut, So you can remove it
   later with `--remove`. This option is only valid with `--shortcut`.
-- --remove _name_ Remove a previously registered shortcut.
+- --`remove _name_` Remove a previously registered shortcut.
 
 ## New Commands Not In xdotool
 
 The following can be used in chained commands:
 
-- savewindowstack _name_ Save the current window stack to a variable
-- loadwindowstack _name_ Load a previously saved window stack
+- `savewindowstack _name_` Save the current window stack to a variable
+- `loadwindowstack _name_` Load a previously saved window stack
 
 ## Supported xdotool Commands
 
@@ -56,42 +56,42 @@ The following can be used in chained commands:
 
 These commands generate a window stack that following _window action_ commands can refer to.
 
-- search
+- `search`
   - MISSING:
-    - --maxdepth: Can only manage toplevel windows in wayland, so no `depth` concept.
-    - --onlyvisible
-    - --sync
+    - `--maxdepth`
+    - `--onlyvisible`
+    - `--sync`
   - NOTE:
-    - --screen only in KDE5
-- getactivewindow
+    - `--screen` (KDE 5 only)
+- `getactivewindow`
 
 ### Window Actions
 
 These commands either take a window-id argument, or use the window stack.
 
-- getwindowname
-- getwindowclassname
-- getwindowpid
-- getwindowgeometry
-  - MISSING: --shell
-  - NOTE: no screen number in KDE 6
-- windowsize
+- `getwindowname`
+- `getwindowclassname`
+- `getwindowpid`
+- `getwindowgeometry`
+  - MISSING: `--shell`
+  - NOTE: shows screen number only in KDE 5
+- `windowsize`
   - MISSING:
-    - --usehints
-    - --sync
-- windowmove
+    - `--usehints`
+    - `--sync`
+- `windowmove`
   - MISSING:
-    - --sync
-- windowminimize
-  - MISSING: --sync
-- windowraise
-  - NOTE: Doesn't work in KDE 5. Use `windowactivate` instead?
-- windowactivate
-  - MISSING: --sync
+    - `--sync`
+- `windowminimize`
+  - MISSING: `--sync`
+- `windowraise` (KDE 6 only)
+  - Use `windowactivate` instead?
+- `windowactivate`
+  - MISSING: `--sync`
 - windowclose
-- set_desktop_for_window
-- get_desktop_for_window
-- windowstate
+- `set_desktop_for_window`
+- `get_desktop_for_window`
+- `windowstate`
   - Supported properties:
     - above
     - below
@@ -111,11 +111,10 @@ These commands either take a window-id argument, or use the window stack.
 
 These actions aren't targeting a specific window, but the whole desktop.
 
-- set_desktop
-- get_desktop
-- set_num_desktops
-  - NOTE: doesn't work in KDE 6
-- get_num_desktops
+- `set_desktop`
+- `get_desktop`
+- `set_num_desktops` (KDE 5 only)
+- `get_num_desktops`
 
 ## Won't support
 
@@ -126,31 +125,31 @@ You can use `ydotool`, `dotool`, `wtype`, etc. for these:
 
 KWin doesn't have such functionality:
 
-- set_desktop_viewport
-- get_desktop_viewport
+- `set_desktop_viewport`
+- `get_desktop_viewport`
 
 X11-specific:
 
-- windowreparent
-- windowmap
-- windowunmap
+- `windowreparent`
+- `windowmap`
+- `windowunmap`
 
 ## Unclear if we can support
 
 - behave window action command
-- exec
-- sleep
+- `exec`
+- `sleep`
 - scripts
 
 KWin has such functionality, but not exposed to the js API:
 
-- selectwindow
-- windowlower
-- windowquit
-- windowkill
-- getwindowfocus: use `getactivewindow` instead?
-- windowfocus: use `windowactivate` instead?
-- set_window
+- `selectwindow`
+- `windowlower`
+- `windowquit`
+- `windowkill`
+- `getwindowfocus`: use `getactivewindow` instead?
+- `windowfocus`: use `windowactivate` instead?
+- `set_window`
 
 ## Troubleshooting
 
