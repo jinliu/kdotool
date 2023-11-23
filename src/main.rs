@@ -7,7 +7,11 @@ use std::sync::RwLock;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use dbus::{blocking::{Connection, SyncConnection}, message::MatchRule, channel::MatchingReceiver};
+use dbus::{
+    blocking::{Connection, SyncConnection},
+    channel::MatchingReceiver,
+    message::MatchRule,
+};
 use lexopt::{Arg, Parser};
 use serde_json::json;
 
@@ -23,7 +27,7 @@ struct Context {
     remove: bool,
 }
 
-static MESSAGES : RwLock<Vec<(String, String)>> = RwLock::new(vec![]);
+static MESSAGES: RwLock<Vec<(String, String)>> = RwLock::new(vec![]);
 
 fn try_parse_option(parser: &mut Parser) -> Option<Arg> {
     let s = parser.try_raw_args()?.peek()?.to_str().unwrap().to_string();
@@ -185,19 +189,24 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                     Remove,
                                     Toggle,
                                 }
-                                let mut add_property = |key:&str, value: WindowState| -> anyhow::Result<()> {
-                                    if let Some(prop) = WINDOWSTATE_PROPERTIES.get(&key) {
-                                        let js = match value {
-                                            WindowState::Add => format!("w.{prop} = true; "),
-                                            WindowState::Remove => format!("w.{prop} = false; "),
-                                            WindowState::Toggle => format!("w.{prop} = !w.{prop}; ")
-                                        };
-                                        opt_windowstate.push_str(&js);
-                                        Ok(())
-                                    } else {
-                                        Err(anyhow!("Unsupported property {key}"))
-                                    }
-                                };
+                                let mut add_property =
+                                    |key: &str, value: WindowState| -> anyhow::Result<()> {
+                                        if let Some(prop) = WINDOWSTATE_PROPERTIES.get(key) {
+                                            let js = match value {
+                                                WindowState::Add => format!("w.{prop} = true; "),
+                                                WindowState::Remove => {
+                                                    format!("w.{prop} = false; ")
+                                                }
+                                                WindowState::Toggle => {
+                                                    format!("w.{prop} = !w.{prop}; ")
+                                                }
+                                            };
+                                            opt_windowstate.push_str(&js);
+                                            Ok(())
+                                        } else {
+                                            Err(anyhow!("Unsupported property {key}"))
+                                        }
+                                    };
                                 match arg {
                                     Long("relative") => {
                                         opt_relative = true;
@@ -206,10 +215,16 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         add_property(&parser.value()?.string()?, WindowState::Add)?;
                                     }
                                     Long("remove") => {
-                                        add_property(&parser.value()?.string()?, WindowState::Remove)?;
+                                        add_property(
+                                            &parser.value()?.string()?,
+                                            WindowState::Remove,
+                                        )?;
                                     }
                                     Long("toggle") => {
-                                        add_property(&parser.value()?.string()?, WindowState::Toggle)?;
+                                        add_property(
+                                            &parser.value()?.string()?,
+                                            WindowState::Toggle,
+                                        )?;
                                     }
                                     _ => {
                                         return Err(arg.unexpected().into());
@@ -221,16 +236,14 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 try_parse_window_id(parser).unwrap_or(String::from("%1"));
 
                             let action = match command.as_str() {
-                                "windowstate" => {
-                                    reg.render_template(
-                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
-                                        &json!({
-                                            "debug": context.debug,
-                                            "kde5": context.kde5,
-                                            "windowstate": opt_windowstate,
-                                        }),
-                                    )?
-                                }
+                                "windowstate" => reg.render_template(
+                                    WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
+                                    &json!({
+                                        "debug": context.debug,
+                                        "kde5": context.kde5,
+                                        "windowstate": opt_windowstate,
+                                    }),
+                                )?,
                                 "windowmove" | "windowsize" => {
                                     let mut x = String::new();
                                     let mut y = String::new();
@@ -509,7 +522,8 @@ fn main() -> anyhow::Result<()> {
                         messages.push((member.to_string(), arg));
                     }
                 }
-                true })                
+                true
+            }),
         );
         loop {
             receiver_conn.process(Duration::from_millis(1000)).unwrap();

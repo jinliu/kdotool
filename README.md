@@ -151,7 +151,6 @@ KWin has such functionality, but not exposed to the js API:
 - windowfocus: use `windowactivate` instead?
 - set_window
 
-
 ## Troubleshooting
 
 If anything fails to work, you can re-run the command with `--debug` option.
