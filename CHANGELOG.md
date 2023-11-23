@@ -1,6 +1,6 @@
 # Change log
 
-## v0.0.2 (2023-11-23)
+## v0.2.0 (2023-11-23)
 
 ### Added
 
@@ -50,6 +50,6 @@ New command options:
 
 - Script output is now sent via dbus, instead of parsing KWin logs.
 
-## v0.0.1 (2023-11-17)
+## v0.1.0 (2023-11-17)
 
 Initial release
