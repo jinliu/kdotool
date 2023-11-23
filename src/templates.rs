@@ -4,15 +4,18 @@ print("{{{marker}}} START");
 function output_debug(message) {
     {{#if debug}}
     print("{{{marker}}} DEBUG", message);
+    callDBus("{{{dbus_addr}}}", "/", "", "debug", message, function () { print('success!'); });
     {{/if}}
 }
 
 function output_error(message) {
     print("{{{marker}}} ERROR", message);
+    callDBus("{{{dbus_addr}}}", "/", "", "error", message, function () { print('success!'); });
 }
 
 function output_result(message) {
     print("{{{marker}}} RESULT", message);
+    callDBus("{{{dbus_addr}}}", "/", "", "result", message, function () { print('success!'); });
 }
 
 {{#if kde5}}

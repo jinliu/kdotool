@@ -3,14 +3,16 @@ use templates::*;
 
 use std::io::Write;
 use std::process::Command;
+use std::sync::RwLock;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use dbus::blocking::Connection;
+use dbus::{blocking::{Connection, SyncConnection}, message::MatchRule, channel::MatchingReceiver};
 use lexopt::{Arg, Parser};
 use serde_json::json;
 
 struct Context {
+    dbus_addr: String,
     cmdline: String,
     debug: bool,
     dry_run: bool,
@@ -20,6 +22,8 @@ struct Context {
     shortcut: String,
     remove: bool,
 }
+
+static MESSAGES : RwLock<Vec<(String, String)>> = RwLock::new(vec![]);
 
 fn try_parse_option(parser: &mut Parser) -> Option<Arg> {
     let s = parser.try_raw_args()?.peek()?.to_str().unwrap().to_string();
@@ -46,6 +50,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
     let mut result = String::new();
     let reg = handlebars::Handlebars::new();
     let render_context = json!({
+        "dbus_addr": context.dbus_addr,
         "cmdline": context.cmdline,
         "debug": context.debug,
         "kde5": context.kde5,
@@ -370,6 +375,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
 
 fn main() -> anyhow::Result<()> {
     let mut context = Context {
+        dbus_addr: String::new(),
         cmdline: std::env::args().collect::<Vec<String>>().join(" "),
         debug: false,
         dry_run: false,
@@ -433,9 +439,12 @@ fn main() -> anyhow::Result<()> {
         )
         .init();
 
+    let conn = Connection::new_session()?;
+    let receiver_conn = SyncConnection::new_session()?;
+    let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
+    context.dbus_addr = receiver_conn.unique_name().to_string();
+
     if context.remove {
-        let conn = Connection::new_session()?;
-        let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
         kwin_proxy.method_call("org.kde.kwin.Scripting", "unloadScript", (context.name,))?;
         return Ok(());
     }
@@ -462,8 +471,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     log::debug!("===== Load script into KWin =====");
-    let conn = Connection::new_session()?;
-    let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
     let script_id: i32;
     (script_id,) = kwin_proxy.method_call(
         "org.kde.kwin.Scripting",
@@ -489,6 +496,26 @@ fn main() -> anyhow::Result<()> {
         },
         Duration::from_millis(5000),
     );
+
+    // setup message receiver
+    let _receiver_thread = std::thread::spawn(move || {
+        let _receiver = receiver_conn.start_receive(
+            MatchRule::new_method_call(),
+            Box::new(|message, _connection| -> bool {
+                log::debug!("dbus message: {:?}", message);
+                if let Some(member) = message.member() {
+                    if let Some(arg) = message.get1() {
+                        let mut messages = MESSAGES.write().unwrap();
+                        messages.push((member.to_string(), arg));
+                    }
+                }
+                true })                
+        );
+        loop {
+            receiver_conn.process(Duration::from_millis(1000)).unwrap();
+        }
+    });
+
     let start_time = chrono::Local::now();
     script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
     if context.shortcut.is_empty() {
@@ -511,20 +538,14 @@ fn main() -> anyhow::Result<()> {
     log::debug!("KWin log from the systemd journal:\n{}", output.trim_end());
 
     log::debug!("===== Output =====");
-    let script_marker = &format!(
-        "js: {} ",
-        script_file_path.file_name().unwrap().to_str().unwrap()
-    );
-    for line in output.lines() {
-        if line.starts_with(script_marker) {
-            let t = &line[script_marker.len()..];
-            const RESULT: &str = "RESULT ";
-            const ERROR: &str = "ERROR ";
-            if let Some(x) = t.strip_prefix(RESULT) {
-                println!("{x}");
-            } else if let Some(x) = t.strip_prefix(ERROR) {
-                eprintln!("{x}");
-            }
+    let messages = MESSAGES.read().unwrap();
+    for (msgtype, message) in messages.iter() {
+        if msgtype == "result" {
+            println!("{message}");
+        } else if msgtype == "error" {
+            eprintln!("ERROR: {message}");
+        } else {
+            println!("{msgtype}: {message}");
         }
     }
 
