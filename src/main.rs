@@ -172,11 +172,39 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                     _ => {
                         if WINDOW_ACTIONS.contains_key(command.as_ref()) {
                             let mut opt_relative = false;
+                            let mut opt_windowstate = String::new();
 
                             while let Some(arg) = try_parse_option(parser) {
+                                enum WindowState {
+                                    Add,
+                                    Remove,
+                                    Toggle,
+                                }
+                                let mut add_property = |key:&str, value: WindowState| -> anyhow::Result<()> {
+                                    if let Some(prop) = WINDOWSTATE_PROPERTIES.get(&key) {
+                                        let js = match value {
+                                            WindowState::Add => format!("w.{prop} = true; "),
+                                            WindowState::Remove => format!("w.{prop} = false; "),
+                                            WindowState::Toggle => format!("w.{prop} = !w.{prop}; ")
+                                        };
+                                        opt_windowstate.push_str(&js);
+                                        Ok(())
+                                    } else {
+                                        Err(anyhow!("Unsupported property {key}"))
+                                    }
+                                };
                                 match arg {
                                     Long("relative") => {
                                         opt_relative = true;
+                                    }
+                                    Long("add") => {
+                                        add_property(&parser.value()?.string()?, WindowState::Add)?;
+                                    }
+                                    Long("remove") => {
+                                        add_property(&parser.value()?.string()?, WindowState::Remove)?;
+                                    }
+                                    Long("toggle") => {
+                                        add_property(&parser.value()?.string()?, WindowState::Toggle)?;
                                     }
                                     _ => {
                                         return Err(arg.unexpected().into());
@@ -188,6 +216,16 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 try_parse_window_id(parser).unwrap_or(String::from("%1"));
 
                             let action = match command.as_str() {
+                                "windowstate" => {
+                                    reg.render_template(
+                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
+                                        &json!({
+                                            "debug": context.debug,
+                                            "kde5": context.kde5,
+                                            "windowstate": opt_windowstate,
+                                        }),
+                                    )?
+                                }
                                 "windowmove" | "windowsize" => {
                                     let mut x = String::new();
                                     let mut y = String::new();

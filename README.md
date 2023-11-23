@@ -2,8 +2,9 @@
 
 ## Introduction
 
-Wayland, for security concerns, removed most of the X11 APIs that `xdotool`
-uses to simulate user input and control windows. [ydotool](https://github.com/ReimuNotMoe/ydotool)
+Wayland, for security concerns, removed most of the X11 APIs that
+[xdotool](https://github.com/jordansissel/xdotool) uses to simulate
+user input and control windows. [ydotool](https://github.com/ReimuNotMoe/ydotool)
 solves the input part by talking directly to the kernel input device. However,
 for the window control part, you have to use each Wayland compositor's own APIs.
 
@@ -24,7 +25,7 @@ Please refer to [xdotool documentation](https://github.com/jordansissel/xdotool/
 for the usage of each command.
 
 Please note that the `window id` this program uses is KWin's internal window id,
-which looks like a UUID (e.g. {04add7fb-72b8-4e58-8ac1-5e22730b907b}). It's not
+which looks like a UUID (e.g. `{04add7fb-72b8-4e58-8ac1-5e22730b907b}`). It's not
 a X11 window id.
 
 ## Global Options
@@ -69,8 +70,9 @@ These commands generate a window stack that following _window action_ commands c
 
 These commands either take a window-id argument, or use the window stack.
 
-- getwindowpid
 - getwindowname
+- getwindowclassname
+- getwindowpid
 - getwindowgeometry
   - MISSING: --shell
   - NOTE: no screen number in KDE 6
@@ -83,7 +85,6 @@ These commands either take a window-id argument, or use the window stack.
   - MISSING:
     - size in percentage
     - --sync
-- getwindowclassname
 - windowminimize
   - MISSING: --sync
 - windowraise
@@ -93,6 +94,21 @@ These commands either take a window-id argument, or use the window stack.
 - windowclose
 - set_desktop_for_window
 - get_desktop_for_window
+- windowstate
+  - Supported properties:
+    - above
+    - below
+    - skip_taskbar
+    - skip_pager
+    - fullscreen
+    - shaded
+    - demands_attention
+  - MISSING:
+    - modal
+    - sticky
+    - hidden
+    - maximized_vert
+    - maximized_horz
 
 ### Global Actions
 
@@ -122,12 +138,12 @@ X11-specific:
 - windowmap
 - windowunmap
 
-## Planned to support
-
-- set_window
-- windowstate
-
 ## Unclear if we can support
+
+- behave window action command
+- exec
+- sleep
+- scripts
 
 KWin has such functionality, but not exposed to the js API:
 
@@ -137,13 +153,8 @@ KWin has such functionality, but not exposed to the js API:
 - windowkill
 - getwindowfocus: use `getactivewindow` instead?
 - windowfocus: use `windowactivate` instead?
+- set_window
 
-Misc:
-
-- exec
-- sleep
-- scripts
-- behave window action command
 
 ## Troubleshooting
 

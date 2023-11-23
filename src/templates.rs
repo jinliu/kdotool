@@ -156,6 +156,7 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
             {{#if x}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
             {{#if y}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
 "#,
+    "windowstate"           => r#"{{{windowstate}}}"#,
     "get_desktop_for_window"=> r#"{{#if kde5}}output_result(w.desktop);{{else}}output_result(w.desktops[0].x11DesktopNumber);{{/if}}"#,
     "set_desktop_for_window"=> r#"
             {{#if kde5}}w.desktop={{{arg}}};{{else}}
@@ -167,6 +168,16 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
                 }
             }
             {{/if}}"#,
+};
+
+pub const WINDOWSTATE_PROPERTIES: phf::Map<&'static str, &'static str> = phf::phf_map! {
+    "above" => "keepAbove",
+    "below" => "keepBelow",
+    "skip_taskbar" => "skipTaskbar",
+    "skip_pager" => "skipPager",
+    "fullscreen" => "fullscreen",
+    "shaded" => "shade",
+    "demands_attention" => "demandsAttention",
 };
 
 pub const STEP_GLOBAL_ACTION: &str = r#"
