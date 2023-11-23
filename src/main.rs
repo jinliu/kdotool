@@ -213,9 +213,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         opt_relative = true;
                                     }
                                     Long("add") => {
-                                        add_property(
-                                            &parser.value()?.string()?,
-                                            WindowState::Add)?;
+                                        add_property(&parser.value()?.string()?, WindowState::Add)?;
                                     }
                                     Long("remove") => {
                                         add_property(
