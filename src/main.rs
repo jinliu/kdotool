@@ -514,6 +514,7 @@ fn main() -> anyhow::Result<()> {
         loop {
             receiver_conn.process(Duration::from_millis(1000)).unwrap();
         }
+        //FIXME: shut down this thread when the script is finished
     });
 
     let start_time = chrono::Local::now();
@@ -528,8 +529,8 @@ fn main() -> anyhow::Result<()> {
             start_time.format("%Y-%m-%d %H:%M:%S")
         ))
         .arg("--user")
-        .arg("--unit=plasma-kwin_wayland.service")
-        .arg("--unit=plasma-kwin_x11.service")
+        .arg("--user-unit=plasma-kwin_wayland.service")
+        .arg("--user-unit=plasma-kwin_x11.service")
         .arg("QT_CATEGORY=js")
         .arg("QT_CATEGORY=kwin_scripting")
         .arg("--output=cat")
