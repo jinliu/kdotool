@@ -237,7 +237,6 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                             let s = arg[..arg.len() - 1].to_string();
                                             _ = s.parse::<i32>()?;
                                             x_percent = s;
-                                            return Err(anyhow!("Relative positioning is not supported yet: {x_percent}%"));
                                         } else {
                                             _ = arg.parse::<i32>()?;
                                             x = arg;
@@ -249,7 +248,6 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                             let s = arg[..arg.len() - 1].to_string();
                                             _ = s.parse::<i32>()?;
                                             y_percent = s;
-                                            return Err(anyhow!("Relative positioning is not supported yet: {y_percent}%"));
                                         } else {
                                             _ = arg.parse::<i32>()?;
                                             y = arg;

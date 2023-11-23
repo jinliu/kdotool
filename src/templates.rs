@@ -147,12 +147,20 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "windowclose"           => "w.closeWindow();",
     "windowactivate"        => "workspace.active{{#if kde5}}Client{{else}}Window{{/if}} = w;",
     "windowsize"            => r#"
+            output_debug(`Window: ${w.frameGeometry}`);
+            output_debug(`Screen: ${workspace.virtualScreenSize}`);
             let q = Object.assign({}, w.frameGeometry);
+            {{#if x_percent}}q.width=workspace.virtualScreenSize.width*{{{x_percent}}}/100;{{/if}}
+            {{#if y_percent}}q.height=workspace.virtualScreenSize.height*{{{y_percent}}}/100;{{/if}}
             {{#if x}}q.width={{{x}}};{{/if}}
             {{#if y}}q.height={{{y}}};{{/if}}
             w.frameGeometry = q;
 "#,
     "windowmove"            => r#"
+            output_debug(`Window: ${w.frameGeometry}`);
+            output_debug(`Screen: ${workspace.virtualScreenSize}`);
+            {{#if x_percent}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}workspace.virtualScreenSize.width*{{{x_percent}}}/100;{{/if}}
+            {{#if y_percent}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}workspace.virtualScreenSize.height*{{{y_percent}}}/100;{{/if}}
             {{#if x}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
             {{#if y}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
 "#,
