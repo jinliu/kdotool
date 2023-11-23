@@ -4,18 +4,22 @@ print("{{{marker}}} START");
 function output_debug(message) {
     {{#if debug}}
     print("{{{marker}}} DEBUG", message);
-    callDBus("{{{dbus_addr}}}", "/", "", "debug", message, function () { print('success!'); });
+    callDBus("{{{dbus_addr}}}", "/", "", "debug", message.toString());
     {{/if}}
 }
 
 function output_error(message) {
     print("{{{marker}}} ERROR", message);
-    callDBus("{{{dbus_addr}}}", "/", "", "error", message, function () { print('success!'); });
+    callDBus("{{{dbus_addr}}}", "/", "", "error", message.toString());
 }
 
 function output_result(message) {
+    if (message == null) {
+        print("{{{marker}}} RESULT null");
+        return;
+    }
     print("{{{marker}}} RESULT", message);
-    callDBus("{{{dbus_addr}}}", "/", "", "result", message, function () { print('success!'); });
+    callDBus("{{{dbus_addr}}}", "/", "", "result", message.toString());
 }
 
 {{#if kde5}}
@@ -34,7 +38,7 @@ window_screen                         = (window) => window.screen;
 workspace_windowList                  = () => workspace.windowList();
 workspace_activeWindow                = () => workspace.activeWindow;
 workspace_setActiveWindow             = (window) => { workspace.activeWindow = window; };
-workspace_raiseWindow                 = (window) => { workspace.raiseWindow(w); };
+workspace_raiseWindow                 = (window) => { workspace.raiseWindow(window); };
 workspace_currentDesktop              = () => workspace.currentDesktop.x11DesktopNumber;
 workspace_setCurrentDesktop           = (id) => {
     let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
@@ -46,17 +50,13 @@ workspace_setCurrentDesktop           = (id) => {
 };
 workspace_numDesktops                 = () => workspace.desktops.length;
 workspace_setNumDesktops              = (n) => { output_error("`set_num_desktops` unsupported in KDE 6"); };
-window_x11DesktopIds                  = (window) => workspace.desktops.map((d) => d.x11DesktopId);
+window_x11DesktopIds                  = (window) => window.desktops.map((d) => d.x11DesktopNumber);
 window_setX11DesktopId                = (window, id) => {
-    if (id == -1)
-        w.desktops = workspace.desktops;
-    else {
-        let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
-        if (d) {
-            w.desktops = [d];
-        } else {
-            output_error(`Invalid desktop number ${id}`);
-        }
+    let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
+    if (d) {
+        window.desktops = [d];
+    } else {
+        output_error(`Invalid desktop number ${id}`);
     }
 };
 window_screen                         = (window) => { output_error("`search --screen` unsupported in KDE 6"); };
@@ -70,7 +70,7 @@ pub const SCRIPT_FOOTER: &str = r#"
 }
 
 {{#if shortcut}}
-registerShortcut("{{#if name}}{{{name}}}{{else}}{{{marker}}}{{/if}}", "{{{cmdline}}}", "{{{shortcut}}}", run);
+registerShortcut("{{#if name}}{{{name}}}{{else}}{{{marker}}}{{/if}}", "{{#if name}}{{{name}}}{{else}}{{{cmdline}}}{{/if}}", "{{{shortcut}}}", run);
 {{else}}
 run();
 {{/if}}
@@ -211,7 +211,7 @@ pub const WINDOWSTATE_PROPERTIES: phf::Map<&'static str, &'static str> = phf::ph
     "below" => "keepBelow",
     "skip_taskbar" => "skipTaskbar",
     "skip_pager" => "skipPager",
-    "fullscreen" => "fullscreen",
+    "fullscreen" => "fullScreen",
     "shaded" => "shade",
     "demands_attention" => "demandsAttention",
 };
@@ -224,6 +224,6 @@ pub const STEP_GLOBAL_ACTION: &str = r#"
 pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "get_desktop"           => "output_result(workspace_currentDesktop());",
     "set_desktop"           => "workspace_setCurrentDesktop({{{arg}}});",
-    "get_num_desktops"           => "workspace_numDesktops();",
+    "get_num_desktops"           => "output_result(workspace_numDesktops());",
     "set_num_desktops"           => "workspace_setNumDesktops({{{arg}}})",
 };

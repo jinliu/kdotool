@@ -41,11 +41,10 @@ fn try_parse_option(parser: &mut Parser) -> Option<Arg> {
 }
 
 fn try_parse_window_id(parser: &mut Parser) -> Option<String> {
-    let mut raw = parser.try_raw_args()?;
+    let raw = parser.try_raw_args()?;
     let s = raw.peek()?.to_str().unwrap().to_string();
     if s.starts_with('%') || s.starts_with('{') {
-        _ = raw.next();
-        return Some(s);
+        return parser.value().map(|v| v.into_string().ok()).ok().flatten();
     }
     None
 }
@@ -176,6 +175,7 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                     "name": name,
                             }),
                         )?);
+                        last_step_is_query = command == "loadwindowstack";
                     }
 
                     _ => {
@@ -191,7 +191,8 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                 }
                                 let mut add_property =
                                     |key: &str, value: WindowState| -> anyhow::Result<()> {
-                                        if let Some(prop) = WINDOWSTATE_PROPERTIES.get(key) {
+                                        let key = key.to_lowercase();
+                                        if let Some(prop) = WINDOWSTATE_PROPERTIES.get(&key) {
                                             let js = match value {
                                                 WindowState::Add => format!("w.{prop} = true; "),
                                                 WindowState::Remove => {
@@ -212,7 +213,9 @@ fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<Str
                                         opt_relative = true;
                                     }
                                     Long("add") => {
-                                        add_property(&parser.value()?.string()?, WindowState::Add)?;
+                                        add_property(
+                                            &parser.value()?.string()?,
+                                            WindowState::Add)?;
                                     }
                                     Long("remove") => {
                                         add_property(
