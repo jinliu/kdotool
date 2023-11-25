@@ -1,404 +1,542 @@
 mod templates;
 use templates::*;
 
+mod parser;
+use parser::*;
+
 use std::io::Write;
 use std::process::Command;
 use std::sync::RwLock;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use dbus::{
     blocking::{Connection, SyncConnection},
     channel::MatchingReceiver,
     message::MatchRule,
 };
-use lexopt::{Arg, Parser};
-use serde_json::json;
+use serde::Serialize;
 
-struct Context {
+#[derive(Default, Serialize)]
+struct Globals {
     dbus_addr: String,
     cmdline: String,
     debug: bool,
-    dry_run: bool,
     kde5: bool,
     marker: String,
-    name: String,
+    script_name: String,
     shortcut: String,
-    remove: bool,
+}
+
+struct StepResult {
+    script: String,
+    is_query: bool,
+    next_arg: Option<String>,
 }
 
 static MESSAGES: RwLock<Vec<(String, String)>> = RwLock::new(vec![]);
 
-fn try_parse_option(parser: &mut Parser) -> Option<Arg> {
-    let s = parser.try_raw_args()?.peek()?.to_str().unwrap().to_string();
-    if s.starts_with('-') {
-        let next_char = s.chars().nth(1)?;
-        if next_char.is_ascii_alphabetic() || next_char == '-' {
-            return parser.next().unwrap();
+fn add_context<T>(render_context: &mut handlebars::Context, key: &str, value: T) 
+    where serde_json::Value: From<T> {
+    render_context.data_mut().as_object_mut().unwrap().insert(key.into(), serde_json::Value::from(value));
+}
+
+fn generate_script(
+    globals: &Globals,
+    mut parser: Parser,
+    next_arg: &str,
+) -> anyhow::Result<String> {
+
+    use lexopt::prelude::*;
+
+    let mut full_script = String::new();
+    let mut reg = handlebars::Handlebars::new();
+    reg.set_strict_mode(true);
+    let render_context = handlebars::Context::wraps(globals)?;
+
+    full_script.push_str(&reg.render_template_with_context(SCRIPT_HEADER, &render_context)?);
+
+    let mut last_step_is_query;
+    let mut command: String = next_arg.into();
+
+    loop {
+        parser = reset_parser(parser)?;
+
+        let step_result = generate_step(&command, &mut parser, &reg, &render_context)
+            .with_context(|| format!("in command '{command}'"))?;
+
+        full_script.push_str(&step_result.script);
+        last_step_is_query = step_result.is_query;
+
+        if let Some(next_arg) = step_result.next_arg {
+            command = next_arg;
+        } else {
+            match parser.next()? {
+                Some(Value(val)) => {
+                    command = val.string()?;
+                }
+
+                None => {
+                    break;
+                }
+
+                Some(arg) => {
+                    return Err(arg.unexpected().into());
+                }
+            }
         }
     }
-    None
-}
 
-fn try_parse_window_id(parser: &mut Parser) -> Option<String> {
-    let raw = parser.try_raw_args()?;
-    let s = raw.peek()?.to_str().unwrap().to_string();
-    if s.starts_with('%') || s.starts_with('{') {
-        return parser.value().map(|v| v.into_string().ok()).ok().flatten();
+    if last_step_is_query {
+        full_script.push_str(&reg.render_template_with_context(STEP_LAST_OUTPUT, &render_context)?);
     }
-    None
+
+    full_script.push_str(&reg.render_template_with_context(SCRIPT_FOOTER, &render_context)?);
+
+    Ok(full_script)
 }
 
-fn generate_script(context: &Context, parser: &mut Parser) -> anyhow::Result<String> {
-    let mut result = String::new();
-    let reg = handlebars::Handlebars::new();
-    let render_context = json!({
-        "dbus_addr": context.dbus_addr,
-        "cmdline": context.cmdline,
-        "debug": context.debug,
-        "kde5": context.kde5,
-        "marker": context.marker,
-        "name": context.name,
-        "shortcut": context.shortcut,
-    });
+fn generate_step(
+    command: &str,
+    parser: &mut Parser,
+    reg: &handlebars::Handlebars,
+    render_context: &handlebars::Context,
+) -> anyhow::Result<StepResult> {
 
-    result.push_str(&reg.render_template(SCRIPT_HEADER, &render_context)?);
+    use lexopt::prelude::*;
 
-    let mut last_step_is_query = false;
+    let step_script;
+    let mut is_query = false;
+    let mut next_arg = None;
+    let mut render_context = render_context.clone();
+    add_context(&mut render_context, "step_name", command);
 
-    while let Some(arg) = parser.next()? {
-        use lexopt::prelude::*;
-        match arg {
-            Value(val) => {
-                let command: String = val.string()?;
-                match command.as_ref() {
-                    "search" => {
-                        let mut match_class = false;
-                        let mut match_classname = false;
-                        let mut match_role = false;
-                        let mut match_name = false;
-                        let mut match_pid = false;
-                        let mut pid = 0;
-                        let mut match_desktop = false;
-                        let mut desktop: u32 = 0;
-                        let mut match_screen = false;
-                        let mut screen: u32 = 0;
-                        let mut limit: u32 = 0;
-                        let mut match_all = false;
-                        while let Some(arg) = try_parse_option(parser) {
+    match command {
+        "search" => {
+            return step_search(parser, reg, &render_context);
+        }
+
+        "getactivewindow" => {
+            step_script = reg.render_template_with_context(STEP_GETACTIVEWINDOW, &render_context)?;
+            is_query = true;
+        }
+
+        "savewindowstack" | "loadwindowstack" => {
+            let mut arg_name = None;
+            while let Some(arg) = parser.next()? {
+                match arg {
+                    Value(val) if arg_name.is_none() => {
+                        arg_name = Some(val.string()?);
+                    }
+                    Value(val) => {
+                        next_arg = Some(val.string()?);
+                        break;
+                    }
+                    _ => {
+                        return Err(arg.unexpected().into());
+                    }
+                }
+            }
+            let mut render_context = render_context.clone();
+            add_context(&mut render_context, "name", arg_name.ok_or(anyhow!("missing argument 'name'"))?.as_str());
+            step_script = reg.render_template_with_context(
+                if command == "savewindowstack" {
+                    STEP_SAVEWINDOWSTACK
+                } else {
+                    STEP_LOADWINDOWSTACK
+                },
+                &render_context,
+            )?;
+            is_query = command == "loadwindowstack";
+        }
+
+        _ => {
+            if WINDOW_ACTIONS.contains_key(command) {
+                let mut arg_window_id: Option<String> = None;
+
+                let action_script;
+                match command {
+                    "windowstate" => {
+                        let mut opt_windowstate = String::new();
+
+                        while let Some(arg) = parser.next()? {
                             match arg {
-                                Long("class") => {
-                                    match_class = true;
+                                Long(option)
+                                    if option == "add"
+                                        || option == "remove"
+                                        || option == "toggle" =>
+                                {
+                                    let option: String = option.into();
+                                    let key = parser.value()?.string()?.to_lowercase();
+                                    if let Some(prop) = WINDOWSTATE_PROPERTIES.get(&key) {
+                                        let js = match option.as_str() {
+                                            "add" => format!("w.{prop} = true; "),
+                                            "remove" => {
+                                                format!("w.{prop} = false; ")
+                                            }
+                                            "toggle" => {
+                                                format!("w.{prop} = !w.{prop}; ")
+                                            }
+                                            _ => unreachable!(),
+                                        };
+                                        opt_windowstate.push_str(&js);
+                                    } else {
+                                        return Err(anyhow!("unsupported property '{key}'"));
+                                    }
                                 }
-                                Long("classname") => {
-                                    match_classname = true;
+                                Value(val) if arg_window_id.is_none() => {
+                                    let s = val.string()?;
+                                    if let Some(id) = to_window_id(&s) {
+                                        arg_window_id = Some(id);
+                                    } else {
+                                        next_arg = Some(s);
+                                    }
                                 }
-                                Long("role") => {
-                                    match_role = true;
-                                }
-                                Long("name") => {
-                                    match_name = true;
-                                }
-                                Long("pid") => {
-                                    match_pid = true;
-                                    pid = parser.value()?.parse()?;
-                                }
-                                Long("desktop") => {
-                                    match_desktop = true;
-                                    desktop = parser.value()?.parse()?;
-                                }
-                                Long("screen") => {
-                                    match_screen = true;
-                                    screen = parser.value()?.parse()?;
-                                }
-                                Long("limit") => {
-                                    limit = parser.value()?.parse()?;
-                                }
-                                Long("all") => {
-                                    match_all = true;
-                                }
-                                Long("any") => {
-                                    match_all = false;
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
                                 }
                                 _ => {
                                     return Err(arg.unexpected().into());
                                 }
                             }
                         }
-                        if !(match_class || match_classname || match_role || match_name) {
-                            match_class = true;
-                            match_classname = true;
-                            match_role = true;
-                            match_name = true;
+
+                        let mut render_context = render_context.clone();
+                        add_context(&mut render_context, "windowstate", opt_windowstate);
+                        action_script = reg.render_template_with_context(
+                            WINDOW_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?;
+                    }
+
+                    "windowmove" | "windowsize" => {
+                        let mut opt_relative = false;
+                        let mut arg_x: Option<String> = None;
+                        let mut arg_y: Option<String> = None;
+
+                        while let Some(arg) = next_maybe_num(parser)? {
+                            match arg {
+                                Long("relative") if command == "windowmove" => {
+                                    opt_relative = true;
+                                }
+                                Value(val) if arg_window_id.is_none() => {
+                                    let s = val.string()?;
+                                    if let Some(id) = to_window_id(&s) {
+                                        arg_window_id = Some(id);
+                                    } else {
+                                        arg_x = Some(s);
+                                    }
+                                }
+                                Value(val) if arg_x.is_none() => {
+                                    arg_x = Some(val.string()?);
+                                }
+                                Value(val) if arg_y.is_none() => {
+                                    arg_y = Some(val.string()?);
+                                }
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
+                                }
+                                _ => {
+                                    return Err(arg.unexpected().into());
+                                }
+                            }
                         }
-                        let search_term: String = parser.value()?.string()?;
-                        result.push_str(&reg.render_template(
-                            STEP_SEARCH,
-                            &json!({
-                                "debug": context.debug,
-                                "kde5": context.kde5,
-                                "search_term": search_term,
-                                "match_all": match_all,
-                                "match_class": match_class,
-                                "match_classname": match_classname,
-                                "match_role": match_role,
-                                "match_name": match_name,
-                                "match_pid": match_pid,
-                                "pid": pid,
-                                "match_desktop": match_desktop,
-                                "desktop": desktop,
-                                "match_screen": match_screen,
-                                "screen": screen,
-                                "limit": limit,
-                            }),
-                        )?);
-                        last_step_is_query = true;
+
+                        let mut x = String::new();
+                        let mut y = String::new();
+                        let mut x_percent = String::new();
+                        let mut y_percent = String::new();
+
+                        if let Some(arg) = arg_x {
+                            if arg != "x" {
+                                if arg.ends_with('%') {
+                                    let s = arg.strip_suffix('%').unwrap();
+                                    _ = s.parse::<i32>()?;
+                                    x_percent = s.into();
+                                } else {
+                                    _ = arg.parse::<i32>()?;
+                                    x = arg;
+                                }
+                            }
+                        } else {
+                            return Err(anyhow!("missing argument 'x'"));
+                        }
+
+                        if let Some(arg) = arg_y {
+                            if arg != "y" {
+                                if arg.ends_with('%') {
+                                    let s = arg.strip_suffix('%').unwrap();
+                                    _ = s.parse::<i32>()?;
+                                    y_percent = s.into();
+                                } else {
+                                    _ = arg.parse::<i32>()?;
+                                    y = arg;
+                                }
+                            }
+                        } else {
+                            return Err(anyhow!("missing argument 'y'"));
+                        }
+
+                        let mut render_context = render_context.clone();
+                        add_context(&mut render_context, "relative", opt_relative);
+                        add_context(&mut render_context, "x", x);
+                        add_context(&mut render_context, "y", y);
+                        add_context(&mut render_context, "x_percent", x_percent);
+                        add_context(&mut render_context, "y_percent", y_percent);
+                
+                        action_script = reg.render_template_with_context(
+                            WINDOW_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?;
                     }
 
-                    "getactivewindow" => {
-                        result
-                            .push_str(&reg.render_template(STEP_GETACTIVEWINDOW, &render_context)?);
-                        last_step_is_query = true;
-                    }
-
-                    "savewindowstack" | "loadwindowstack" => {
-                        let name = parser.value()?.string()?;
-                        result.push_str(&reg.render_template(
-                            if command == "savewindowstack" {
-                                STEP_SAVEWINDOWSTACK
-                            } else {
-                                STEP_LOADWINDOWSTACK
-                            },
-                            &json!({
-                                    "debug": context.debug,
-                                    "kde5": context.kde5,
-                                    "name": name,
-                            }),
-                        )?);
-                        last_step_is_query = command == "loadwindowstack";
+                    "set_desktop_for_window" => {
+                        let mut arg_desktop_id: Option<i32> = None;
+                        while let Some(arg) = next_maybe_num(parser)? {
+                            match arg {
+                                Value(val) if arg_window_id.is_none() => {
+                                    let s = val.string()?;
+                                    if let Some(id) = to_window_id(&s) {
+                                        arg_window_id = Some(id);
+                                    } else {
+                                        arg_desktop_id = Some(s.parse()?);
+                                    }
+                                }
+                                Value(val) if arg_desktop_id.is_none() => {
+                                    arg_desktop_id = Some(val.parse()?);
+                                }
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
+                                }
+                                _ => {
+                                    return Err(arg.unexpected().into());
+                                }
+                            }
+                        }
+                        let mut render_context = render_context.clone();
+                        add_context(&mut render_context, "desktop_id", arg_desktop_id);
+                        action_script = reg.render_template_with_context(
+                            WINDOW_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?;
                     }
 
                     _ => {
-                        if WINDOW_ACTIONS.contains_key(command.as_ref()) {
-                            let mut opt_relative = false;
-                            let mut opt_windowstate = String::new();
-
-                            while let Some(arg) = try_parse_option(parser) {
-                                enum WindowState {
-                                    Add,
-                                    Remove,
-                                    Toggle,
+                        while let Some(arg) = next_maybe_num(parser)? {
+                            match arg {
+                                Value(val) if arg_window_id.is_none() => {
+                                    let s = val.string()?;
+                                    if let Some(id) = to_window_id(&s) {
+                                        arg_window_id = Some(id);
+                                    } else {
+                                        next_arg = Some(s);
+                                        break;
+                                    }
                                 }
-                                let mut add_property =
-                                    |key: &str, value: WindowState| -> anyhow::Result<()> {
-                                        let key = key.to_lowercase();
-                                        if let Some(prop) = WINDOWSTATE_PROPERTIES.get(&key) {
-                                            let js = match value {
-                                                WindowState::Add => format!("w.{prop} = true; "),
-                                                WindowState::Remove => {
-                                                    format!("w.{prop} = false; ")
-                                                }
-                                                WindowState::Toggle => {
-                                                    format!("w.{prop} = !w.{prop}; ")
-                                                }
-                                            };
-                                            opt_windowstate.push_str(&js);
-                                            Ok(())
-                                        } else {
-                                            Err(anyhow!("Unsupported property {key}"))
-                                        }
-                                    };
-                                match arg {
-                                    Long("relative") => {
-                                        opt_relative = true;
-                                    }
-                                    Long("add") => {
-                                        add_property(&parser.value()?.string()?, WindowState::Add)?;
-                                    }
-                                    Long("remove") => {
-                                        add_property(
-                                            &parser.value()?.string()?,
-                                            WindowState::Remove,
-                                        )?;
-                                    }
-                                    Long("toggle") => {
-                                        add_property(
-                                            &parser.value()?.string()?,
-                                            WindowState::Toggle,
-                                        )?;
-                                    }
-                                    _ => {
-                                        return Err(arg.unexpected().into());
-                                    }
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
+                                }
+                                _ => {
+                                    return Err(arg.unexpected().into());
                                 }
                             }
+                        }
+                        action_script = reg.render_template_with_context(WINDOW_ACTIONS.get(command).unwrap(), &render_context)?;
+                    }
+                };
 
-                            let window_id =
-                                try_parse_window_id(parser).unwrap_or(String::from("%1"));
+                let window_id = arg_window_id.unwrap_or("%1".into());
+                let mut render_context = render_context.clone();
+                add_context(&mut render_context, "action", action_script);
 
-                            let action = match command.as_str() {
-                                "windowstate" => reg.render_template(
-                                    WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
-                                    &json!({
-                                        "debug": context.debug,
-                                        "kde5": context.kde5,
-                                        "windowstate": opt_windowstate,
-                                    }),
-                                )?,
-                                "windowmove" | "windowsize" => {
-                                    let mut x = String::new();
-                                    let mut y = String::new();
-                                    let mut x_percent = String::new();
-                                    let mut y_percent = String::new();
-                                    let arg: String = parser.value()?.string()?;
-                                    if arg != "x" {
-                                        if arg.ends_with('%') {
-                                            let s = arg[..arg.len() - 1].to_string();
-                                            _ = s.parse::<i32>()?;
-                                            x_percent = s;
-                                        } else {
-                                            _ = arg.parse::<i32>()?;
-                                            x = arg;
-                                        }
-                                    }
-                                    let arg: String = parser.value()?.string()?;
-                                    if arg != "y" {
-                                        if arg.ends_with('%') {
-                                            let s = arg[..arg.len() - 1].to_string();
-                                            _ = s.parse::<i32>()?;
-                                            y_percent = s;
-                                        } else {
-                                            _ = arg.parse::<i32>()?;
-                                            y = arg;
-                                        }
-                                    }
-                                    reg.render_template(
-                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
-                                        &json!({
-                                            "debug": context.debug,
-                                            "kde5": context.kde5,
-                                            "relative": opt_relative,
-                                            "x": x,
-                                            "x_percent": x_percent,
-                                            "y": y,
-                                            "y_percent": y_percent,
-                                        }),
-                                    )?
+                if window_id == "%@" {
+                    step_script = reg.render_template_with_context(
+                        STEP_ACTION_ON_STACK_ALL,
+                        &render_context,
+                    )?;
+                } else if let Some(s) = window_id.strip_prefix('%') {
+                    let index = s.parse::<i32>()?;
+                    let mut render_context = render_context.clone();
+                    add_context(&mut render_context, "item_index", index);
+
+                    step_script = reg.render_template_with_context(
+                        STEP_ACTION_ON_STACK_ITEM,
+                        &render_context,
+                    )?;
+                } else {
+                    let mut render_context = render_context.clone();
+                    add_context(&mut render_context, "window_id", window_id);
+                    step_script = reg.render_template_with_context(
+                        STEP_ACTION_ON_WINDOW_ID,
+                        &render_context,
+                    )?;
+                }
+            } else if GLOBAL_ACTIONS.contains_key(command.as_ref()) {
+                let action_script;
+                match command {
+                    "set_desktop" | "set_num_desktops" => {
+                        let mut arg_n: Option<i32> = None;
+                        while let Some(arg) = next_maybe_num(parser)? {
+                            match arg {
+                                Value(val) if arg_n.is_none() => {
+                                    arg_n = Some(val.parse()?);
                                 }
-                                "set_desktop_for_window" => {
-                                    let desktop_id: u32 = parser.value()?.parse()?;
-                                    reg.render_template(
-                                        WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
-                                        &json!({
-                                            "debug": context.debug,
-                                            "kde5": context.kde5,
-                                            "arg": desktop_id,
-                                        }),
-                                    )?
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
                                 }
-                                _ => reg.render_template(
-                                    WINDOW_ACTIONS.get(command.as_ref()).unwrap(),
-                                    &render_context,
-                                )?,
-                            };
-
-                            if window_id == "%@" {
-                                result.push_str(&reg.render_template(
-                                    STEP_ACTION_ON_STACK_ALL,
-                                    &json!({
-                                        "kde5": context.kde5,
-                                        "debug": context.debug,
-                                        "step_name": command,
-                                        "action": action,
-                                    }),
-                                )?);
-                            } else if let Some(s) = window_id.strip_prefix('%') {
-                                let index = s.parse::<i32>()?;
-                                result.push_str(&reg.render_template(
-                                    STEP_ACTION_ON_STACK_ITEM,
-                                    &json!({
-                                        "kde5": context.kde5,
-                                        "debug": context.debug,
-                                        "step_name": command,
-                                        "action": action,
-                                        "item_index": index,
-                                    }),
-                                )?);
-                            } else {
-                                result.push_str(&reg.render_template(
-                                    STEP_ACTION_ON_WINDOW_ID,
-                                    &json!({
-                                        "kde5": context.kde5,
-                                        "debug": context.debug,
-                                        "step_name": command,
-                                        "action": action,
-                                        "window_id": window_id
-                                    }),
-                                )?);
+                                _ => {
+                                    return Err(arg.unexpected().into());
+                                }
                             }
+                        }
 
-                            last_step_is_query = false;
-                        } else if GLOBAL_ACTIONS.contains_key(command.as_ref()) {
-                            let action = match command.as_str() {
-                                "set_desktop" | "set_num_desktops" => {
-                                    let desktop_id: u32 = parser.value()?.parse()?;
-                                    reg.render_template(
-                                        GLOBAL_ACTIONS.get(command.as_ref()).unwrap(),
-                                        &json!({
-                                            "debug": context.debug,
-                                            "kde5": context.kde5,
-                                            "arg": desktop_id,
-                                        }),
-                                    )?
-                                }
-                                _ => reg.render_template(
-                                    GLOBAL_ACTIONS.get(command.as_ref()).unwrap(),
-                                    &render_context,
-                                )?,
-                            };
-                            result.push_str(&reg.render_template(
-                                STEP_GLOBAL_ACTION,
-                                &json!({
-                                    "kde5": context.kde5,
-                                    "debug": context.debug,
-                                    "step_name": command,
-                                    "action": action,
-                                }),
-                            )?);
-                            last_step_is_query = false;
+                        if let Some(n) = arg_n {
+                            let mut render_context = render_context.clone();
+                            add_context(&mut render_context, "n", n);
+        
+                            action_script = reg.render_template_with_context(
+                                GLOBAL_ACTIONS.get(command).unwrap(),
+                                &render_context,
+                            )?;
+                        } else if command == "set_desktop" {
+                            return Err(anyhow!("missing argument 'desktop_id'"));
                         } else {
-                            return Err(anyhow!("Unknown command: {command}"));
+                            return Err(anyhow!("missing argument 'num'"));
                         }
                     }
-                }
+
+                    _ => {
+                        action_script = reg.render_template_with_context(GLOBAL_ACTIONS.get(command).unwrap(), &render_context)?;
+                    }
+                };
+
+                let mut render_context = render_context.clone();
+                add_context(&mut render_context, "action", action_script);
+                step_script = reg.render_template_with_context(
+                    STEP_GLOBAL_ACTION,
+                    &render_context,
+                )?;
+            } else {
+                return Err(anyhow!("Unknown command: {command}"));
+            }
+        }
+    }
+
+    Ok(StepResult {
+        script: step_script,
+        is_query,
+        next_arg,
+    })
+}
+
+fn step_search(
+    parser: &mut Parser,
+    reg: &handlebars::Handlebars,
+    render_context: &handlebars::Context
+) -> anyhow::Result<StepResult> {
+    use lexopt::prelude::*;
+
+    #[derive(Default, Serialize)]
+    struct Options {
+        debug: bool,
+        kde5: bool,
+        match_class: bool,
+        match_classname: bool,
+        match_role: bool,
+        match_name: bool,
+        match_pid: bool,
+        pid: i32,
+        match_desktop: bool,
+        desktop: i32,
+        match_screen: bool,
+        screen: i32,
+        limit: u32,
+        match_all: bool,
+        search_term: String,
+    }
+
+    let mut opt = Options {
+        debug: render_context.data().as_object().unwrap().get("debug").unwrap().as_bool().unwrap(),
+        kde5: render_context.data().as_object().unwrap().get("debug").unwrap().as_bool().unwrap(),
+        ..Default::default()
+    };
+
+    let mut next_arg = None;
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Long("class") => {
+                opt.match_class = true;
+            }
+            Long("classname") => {
+                opt.match_classname = true;
+            }
+            Long("role") => {
+                opt.match_role = true;
+            }
+            Long("name") => {
+                opt.match_name = true;
+            }
+            Long("pid") => {
+                opt.match_pid = true;
+                opt.pid = parser.value()?.parse()?;
+            }
+            Long("desktop") => {
+                opt.match_desktop = true;
+                opt.desktop = parser.value()?.parse()?;
+            }
+            Long("screen") => {
+                opt.match_screen = true;
+                opt.screen = parser.value()?.parse()?;
+            }
+            Long("limit") => {
+                opt.limit = parser.value()?.parse()?;
+            }
+            Long("all") => {
+                opt.match_all = true;
+            }
+            Long("any") => {
+                opt.match_all = false;
+            }
+            Value(val) if opt.search_term.is_empty() => {
+                opt.search_term = val.string()?;
+            }
+            Value(val) => {
+                next_arg = Some(val.string()?);
+                break;
             }
             _ => {
                 return Err(arg.unexpected().into());
             }
         }
     }
-
-    if last_step_is_query {
-        result.push_str(&reg.render_template(STEP_LAST_OUTPUT, &render_context)?);
+    if !(opt.match_class || opt.match_classname || opt.match_role || opt.match_name) {
+        opt.match_class = true;
+        opt.match_classname = true;
+        opt.match_role = true;
+        opt.match_name = true;
     }
-
-    result.push_str(&reg.render_template(SCRIPT_FOOTER, &render_context)?);
-
-    Ok(result)
+    let render_context = handlebars::Context::wraps(opt)?;
+    Ok(StepResult {
+        script: reg.render_template_with_context(
+            STEP_SEARCH,
+            &render_context,
+        )?,
+        is_query: true,
+        next_arg,
+    })
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut context = Context {
-        dbus_addr: String::new(),
+    let mut context = Globals {
         cmdline: std::env::args().collect::<Vec<String>>().join(" "),
-        debug: false,
-        dry_run: false,
-        kde5: false,
-        marker: String::new(),
-        shortcut: String::new(),
-        name: String::new(),
-        remove: false,
+        ..Default::default()
     };
+
     let mut parser = Parser::from_env();
 
     if let Ok(version) = std::env::var("KDE_SESSION_VERSION") {
@@ -408,42 +546,55 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Parse global options
-    if parser.raw_args()?.peek().is_none() {
-        help();
-        return Ok(());
-    }
+    let mut next_arg: Option<String> = None;
+    let mut opt_help = false;
+    let mut opt_version = false;
+    let mut opt_dry_run = false;
+    let mut opt_remove = false;
 
-    while let Some(arg) = try_parse_option(&mut parser) {
+    while let Some(arg) = parser.next()? {
         use lexopt::prelude::*;
         match arg {
             Short('h') | Long("help") => {
-                help();
-                return Ok(());
+                opt_help = true;
             }
             Short('v') | Long("version") => {
-                println!("kdotool v{}", env!("CARGO_PKG_VERSION"));
-                return Ok(());
+                opt_version = true;
             }
             Short('d') | Long("debug") => {
                 context.debug = true;
             }
             Short('n') | Long("dry-run") => {
-                context.dry_run = true;
+                opt_dry_run = true;
             }
             Long("shortcut") => {
                 context.shortcut = parser.value()?.string()?;
             }
             Long("name") => {
-                context.name = parser.value()?.string()?;
+                context.script_name = parser.value()?.string()?;
             }
             Long("remove") => {
-                context.remove = true;
-                context.name = parser.value()?.string()?;
+                opt_remove = true;
+                context.script_name = parser.value()?.string()?;
+            }
+            Value(os_string) => {
+                next_arg = Some(os_string.string()?);
+                break;
             }
             _ => {
                 return Err(arg.unexpected().into());
             }
         }
+    }
+
+    if next_arg.is_none() || opt_help {
+        help();
+        return Ok(());
+    }
+
+    if opt_version {
+        println!("kdotool v{}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
     }
 
     env_logger::Builder::from_default_env()
@@ -457,15 +608,21 @@ fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let conn = Connection::new_session()?;
-    let receiver_conn = SyncConnection::new_session()?;
-    let kwin_proxy = conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
-    context.dbus_addr = receiver_conn.unique_name().to_string();
+    let kwin_conn = Connection::new_session()?;
+    let kwin_proxy =
+        kwin_conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
 
-    if context.remove {
-        kwin_proxy.method_call("org.kde.kwin.Scripting", "unloadScript", (context.name,))?;
+    if opt_remove {
+        kwin_proxy.method_call(
+            "org.kde.kwin.Scripting",
+            "unloadScript",
+            (context.script_name,),
+        )?;
         return Ok(());
     }
+
+    let self_conn = SyncConnection::new_session()?;
+    context.dbus_addr = self_conn.unique_name().to_string();
 
     log::debug!("===== Generate KWin script =====");
     let mut script_file = tempfile::NamedTempFile::with_prefix("kdotool-")?;
@@ -473,17 +630,16 @@ fn main() -> anyhow::Result<()> {
         .path()
         .file_name()
         .unwrap()
-        .to_str()
-        .unwrap()
+        .to_string_lossy()
         .into();
 
-    let script_contents = generate_script(&context, &mut parser)?;
+    let script_contents = generate_script(&context, parser, &next_arg.unwrap())?;
 
     log::debug!("Script:{script_contents}");
     script_file.write_all(script_contents.as_bytes())?;
     let script_file_path = script_file.into_temp_path();
 
-    if context.dry_run {
+    if opt_dry_run {
         println!("{}", script_contents.trim());
         return Ok(());
     }
@@ -493,19 +649,12 @@ fn main() -> anyhow::Result<()> {
     (script_id,) = kwin_proxy.method_call(
         "org.kde.kwin.Scripting",
         "loadScript",
-        (
-            script_file_path.to_str().unwrap(),
-            if context.name.is_empty() {
-                context.marker
-            } else {
-                context.name
-            },
-        ),
+        (script_file_path.to_str().unwrap(), context.script_name),
     )?;
     log::debug!("Script ID: {script_id}");
 
     log::debug!("===== Run script =====");
-    let script_proxy = conn.with_proxy(
+    let script_proxy = kwin_conn.with_proxy(
         "org.kde.KWin",
         if context.kde5 {
             format!("/{script_id}")
@@ -517,7 +666,7 @@ fn main() -> anyhow::Result<()> {
 
     // setup message receiver
     let _receiver_thread = std::thread::spawn(move || {
-        let _receiver = receiver_conn.start_receive(
+        let _receiver = self_conn.start_receive(
             MatchRule::new_method_call(),
             Box::new(|message, _connection| -> bool {
                 log::debug!("dbus message: {:?}", message);
@@ -531,7 +680,7 @@ fn main() -> anyhow::Result<()> {
             }),
         );
         loop {
-            receiver_conn.process(Duration::from_millis(1000)).unwrap();
+            self_conn.process(Duration::from_millis(1000)).unwrap();
         }
         //FIXME: shut down this thread when the script is finished
     });
@@ -592,14 +741,19 @@ pub fn help() {
     println!("  search <term>");
     println!("  getactivewindow");
     {
-        let mut actions: Vec<&&str> = templates::WINDOW_ACTIONS
-            .keys()
-            .chain(templates::GLOBAL_ACTIONS.keys())
-            .collect();
+        let mut actions: Vec<&&str> = templates::WINDOW_ACTIONS.keys().collect();
         actions.sort();
 
         for i in actions {
             println!("  {i} <window>");
+        }
+    }
+    {
+        let mut actions: Vec<&&str> = templates::GLOBAL_ACTIONS.keys().collect();
+        actions.sort();
+
+        for i in actions {
+            println!("  {i}");
         }
     }
     println!();

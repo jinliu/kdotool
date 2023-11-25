@@ -70,7 +70,7 @@ pub const SCRIPT_FOOTER: &str = r#"
 }
 
 {{#if shortcut}}
-registerShortcut("{{#if name}}{{{name}}}{{else}}{{{marker}}}{{/if}}", "{{#if name}}{{{name}}}{{else}}{{{cmdline}}}{{/if}}", "{{{shortcut}}}", run);
+registerShortcut("{{#if script_name}}{{{script_name}}}{{else}}{{{marker}}}{{/if}}", "{{#if script_name}}{{{script_name}}}{{else}}{{{cmdline}}}{{/if}}", "{{{shortcut}}}", run);
 {{else}}
 run();
 {{/if}}
@@ -203,7 +203,7 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
 "#,
     "windowstate"           => "{{{windowstate}}}",
     "get_desktop_for_window"=> "output_result(window_x11DesktopIds(w)[0]);",
-    "set_desktop_for_window"=> "window_setX11DesktopId(w, {{{arg}}})",
+    "set_desktop_for_window"=> "window_setX11DesktopId(w, {{{desktop_id}}})",
 };
 
 pub const WINDOWSTATE_PROPERTIES: phf::Map<&'static str, &'static str> = phf::phf_map! {
@@ -223,7 +223,7 @@ pub const STEP_GLOBAL_ACTION: &str = r#"
 
 pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "get_desktop"           => "output_result(workspace_currentDesktop());",
-    "set_desktop"           => "workspace_setCurrentDesktop({{{arg}}});",
+    "set_desktop"           => "workspace_setCurrentDesktop({{{n}}});",
     "get_num_desktops"           => "output_result(workspace_numDesktops());",
-    "set_num_desktops"           => "workspace_setNumDesktops({{{arg}}})",
+    "set_num_desktops"           => "workspace_setNumDesktops({{{n}}})",
 };

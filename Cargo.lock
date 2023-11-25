@@ -266,6 +266,7 @@ dependencies = [
  "lexopt",
  "log",
  "phf",
+ "serde",
  "serde_json",
  "tempfile",
 ]
