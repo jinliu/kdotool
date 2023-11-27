@@ -6,6 +6,8 @@ pub fn help() {
     print_version();
     print!(
         r#"
+kdotool is a xdotool-like window control utility for KDE 5 and 6.
+
 USAGE:
     kdotool [OPTIONS] COMMAND [ARGS] [COMMAND [ARGS]]...
 
