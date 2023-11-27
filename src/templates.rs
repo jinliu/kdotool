@@ -45,7 +45,7 @@ workspace_setCurrentDesktop           = (id) => {
     if (d) {
         workspace.currentDesktop = d;
     } else {
-        output_error("Invalid desktop number '{{{id}}}'");
+        output_error(`Invalid desktop number ${id}`);
     }
 };
 workspace_numDesktops                 = () => workspace.desktops.length;

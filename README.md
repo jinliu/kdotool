@@ -112,6 +112,7 @@ These commands either take a window-id argument, or use the window stack.
 These actions aren't targeting a specific window, but the whole desktop.
 
 - `set_desktop`
+  - MISSING: --relative
 - `get_desktop`
 - `set_num_desktops` (KDE 5 only)
 - `get_num_desktops`

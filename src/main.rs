@@ -4,6 +4,9 @@ use templates::*;
 mod parser;
 use parser::*;
 
+mod help;
+use help::*;
+
 use std::io::Write;
 use std::process::Command;
 use std::sync::RwLock;
@@ -294,7 +297,6 @@ fn generate_step(
                         add_context(&mut render_context, "y", y);
                         add_context(&mut render_context, "x_percent", x_percent);
                         add_context(&mut render_context, "y_percent", y_percent);
-
                         action_script = reg.render_template_with_context(
                             WINDOW_ACTIONS.get(command).unwrap(),
                             &render_context,
@@ -609,7 +611,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if opt_version {
-        println!("kdotool v{}", env!("CARGO_PKG_VERSION"));
+        print_version();
         return Ok(());
     }
 
@@ -743,47 +745,4 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-pub fn help() {
-    println!("Usage: kdotool [options] <command> [args...]");
-    println!();
-    println!("Options:");
-    println!("  -h, --help                 Show this help");
-    println!("  -v, --version              Show program version");
-    println!("  -d, --debug                Enable debug output");
-    println!(
-        "  -n, --dry-run              Don't actually run the script. Just print it to stdout."
-    );
-    println!("  --shortcut <shortcut>      Register a shortcut to run the script.");
-    println!(
-        "    --name <name>            Set a name for the shortcut, so you can remove it later."
-    );
-    println!("  --remove <name>            Remove a previously registered shortcut.");
-    println!();
-    println!("Commands:");
-    println!("  search <term>");
-    println!("  getactivewindow");
-    {
-        let mut actions: Vec<&&str> = templates::WINDOW_ACTIONS.keys().collect();
-        actions.sort();
-
-        for i in actions {
-            println!("  {i} <window>");
-        }
-    }
-    {
-        let mut actions: Vec<&&str> = templates::GLOBAL_ACTIONS.keys().collect();
-        actions.sort();
-
-        for i in actions {
-            println!("  {i}");
-        }
-    }
-    println!();
-    println!("Window can be specified as:");
-    println!("  %1 - the first window in the stack (default)");
-    println!("  %N - the Nth window in the stack");
-    println!("  %@ - all windows in the stack");
-    println!("  <window id> - the window with the given ID");
 }
