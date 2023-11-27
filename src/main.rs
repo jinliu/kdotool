@@ -36,9 +36,15 @@ struct StepResult {
 
 static MESSAGES: RwLock<Vec<(String, String)>> = RwLock::new(vec![]);
 
-fn add_context<T>(render_context: &mut handlebars::Context, key: &str, value: T) 
-    where serde_json::Value: From<T> {
-    render_context.data_mut().as_object_mut().unwrap().insert(key.into(), serde_json::Value::from(value));
+fn add_context<T>(render_context: &mut handlebars::Context, key: &str, value: T)
+where
+    serde_json::Value: From<T>,
+{
+    render_context
+        .data_mut()
+        .as_object_mut()
+        .unwrap()
+        .insert(key.into(), serde_json::Value::from(value));
 }
 
 fn generate_script(
@@ -46,7 +52,6 @@ fn generate_script(
     mut parser: Parser,
     next_arg: &str,
 ) -> anyhow::Result<String> {
-
     use lexopt::prelude::*;
 
     let mut full_script = String::new();
@@ -102,7 +107,6 @@ fn generate_step(
     reg: &handlebars::Handlebars,
     render_context: &handlebars::Context,
 ) -> anyhow::Result<StepResult> {
-
     use lexopt::prelude::*;
 
     let step_script;
@@ -117,7 +121,8 @@ fn generate_step(
         }
 
         "getactivewindow" => {
-            step_script = reg.render_template_with_context(STEP_GETACTIVEWINDOW, &render_context)?;
+            step_script =
+                reg.render_template_with_context(STEP_GETACTIVEWINDOW, &render_context)?;
             is_query = true;
         }
 
@@ -138,7 +143,11 @@ fn generate_step(
                 }
             }
             let mut render_context = render_context.clone();
-            add_context(&mut render_context, "name", arg_name.ok_or(anyhow!("missing argument 'name'"))?.as_str());
+            add_context(
+                &mut render_context,
+                "name",
+                arg_name.ok_or(anyhow!("missing argument 'name'"))?.as_str(),
+            );
             step_script = reg.render_template_with_context(
                 if command == "savewindowstack" {
                     STEP_SAVEWINDOWSTACK
@@ -285,7 +294,7 @@ fn generate_step(
                         add_context(&mut render_context, "y", y);
                         add_context(&mut render_context, "x_percent", x_percent);
                         add_context(&mut render_context, "y_percent", y_percent);
-                
+
                         action_script = reg.render_template_with_context(
                             WINDOW_ACTIONS.get(command).unwrap(),
                             &render_context,
@@ -345,7 +354,10 @@ fn generate_step(
                                 }
                             }
                         }
-                        action_script = reg.render_template_with_context(WINDOW_ACTIONS.get(command).unwrap(), &render_context)?;
+                        action_script = reg.render_template_with_context(
+                            WINDOW_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?;
                     }
                 };
 
@@ -354,26 +366,19 @@ fn generate_step(
                 add_context(&mut render_context, "action", action_script);
 
                 if window_id == "%@" {
-                    step_script = reg.render_template_with_context(
-                        STEP_ACTION_ON_STACK_ALL,
-                        &render_context,
-                    )?;
+                    step_script = reg
+                        .render_template_with_context(STEP_ACTION_ON_STACK_ALL, &render_context)?;
                 } else if let Some(s) = window_id.strip_prefix('%') {
                     let index = s.parse::<i32>()?;
                     let mut render_context = render_context.clone();
                     add_context(&mut render_context, "item_index", index);
-
-                    step_script = reg.render_template_with_context(
-                        STEP_ACTION_ON_STACK_ITEM,
-                        &render_context,
-                    )?;
+                    step_script = reg
+                        .render_template_with_context(STEP_ACTION_ON_STACK_ITEM, &render_context)?;
                 } else {
                     let mut render_context = render_context.clone();
                     add_context(&mut render_context, "window_id", window_id);
-                    step_script = reg.render_template_with_context(
-                        STEP_ACTION_ON_WINDOW_ID,
-                        &render_context,
-                    )?;
+                    step_script = reg
+                        .render_template_with_context(STEP_ACTION_ON_WINDOW_ID, &render_context)?;
                 }
             } else if GLOBAL_ACTIONS.contains_key(command.as_ref()) {
                 let action_script;
@@ -398,7 +403,6 @@ fn generate_step(
                         if let Some(n) = arg_n {
                             let mut render_context = render_context.clone();
                             add_context(&mut render_context, "n", n);
-        
                             action_script = reg.render_template_with_context(
                                 GLOBAL_ACTIONS.get(command).unwrap(),
                                 &render_context,
@@ -411,16 +415,17 @@ fn generate_step(
                     }
 
                     _ => {
-                        action_script = reg.render_template_with_context(GLOBAL_ACTIONS.get(command).unwrap(), &render_context)?;
+                        action_script = reg.render_template_with_context(
+                            GLOBAL_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?;
                     }
                 };
 
                 let mut render_context = render_context.clone();
                 add_context(&mut render_context, "action", action_script);
-                step_script = reg.render_template_with_context(
-                    STEP_GLOBAL_ACTION,
-                    &render_context,
-                )?;
+                step_script =
+                    reg.render_template_with_context(STEP_GLOBAL_ACTION, &render_context)?;
             } else {
                 return Err(anyhow!("Unknown command: {command}"));
             }
@@ -437,7 +442,7 @@ fn generate_step(
 fn step_search(
     parser: &mut Parser,
     reg: &handlebars::Handlebars,
-    render_context: &handlebars::Context
+    render_context: &handlebars::Context,
 ) -> anyhow::Result<StepResult> {
     use lexopt::prelude::*;
 
@@ -461,8 +466,22 @@ fn step_search(
     }
 
     let mut opt = Options {
-        debug: render_context.data().as_object().unwrap().get("debug").unwrap().as_bool().unwrap(),
-        kde5: render_context.data().as_object().unwrap().get("debug").unwrap().as_bool().unwrap(),
+        debug: render_context
+            .data()
+            .as_object()
+            .unwrap()
+            .get("debug")
+            .unwrap()
+            .as_bool()
+            .unwrap(),
+        kde5: render_context
+            .data()
+            .as_object()
+            .unwrap()
+            .get("debug")
+            .unwrap()
+            .as_bool()
+            .unwrap(),
         ..Default::default()
     };
 
@@ -522,10 +541,7 @@ fn step_search(
     }
     let render_context = handlebars::Context::wraps(opt)?;
     Ok(StepResult {
-        script: reg.render_template_with_context(
-            STEP_SEARCH,
-            &render_context,
-        )?,
+        script: reg.render_template_with_context(STEP_SEARCH, &render_context)?,
         is_query: true,
         next_arg,
     })
@@ -616,7 +632,7 @@ fn main() -> anyhow::Result<()> {
         kwin_proxy.method_call(
             "org.kde.kwin.Scripting",
             "unloadScript",
-            (context.script_name,),
+            (&context.script_name,),
         )?;
         return Ok(());
     }
@@ -649,7 +665,7 @@ fn main() -> anyhow::Result<()> {
     (script_id,) = kwin_proxy.method_call(
         "org.kde.kwin.Scripting",
         "loadScript",
-        (script_file_path.to_str().unwrap(), context.script_name),
+        (script_file_path.to_str().unwrap(), &context.script_name),
     )?;
     log::debug!("Script ID: {script_id}");
 
@@ -715,6 +731,14 @@ fn main() -> anyhow::Result<()> {
             eprintln!("ERROR: {message}");
         } else {
             println!("{msgtype}: {message}");
+        }
+    }
+
+    if !context.shortcut.is_empty() {
+        println!("Shortcut registered: {}", context.shortcut);
+        println!("Script ID: {script_id}");
+        if !context.script_name.is_empty() {
+            println!("Script name: {}", context.script_name);
         }
     }
 
