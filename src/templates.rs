@@ -108,7 +108,7 @@ pub const STEP_SEARCH: &str = r#"
             {{/if}}
         ) {
             {{#if match_desktop}}
-            if (window_x11DesktopIds(w).indexOf({{{desktop}}}) < 0) break;
+            if (window_x11DesktopIds(w).indexOf({{{desktop}}}) < 0) continue;
             {{/if}}
             {{#if match_screen}}
             if (window_screen(w) != {{{screen}}}) continue;
