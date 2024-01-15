@@ -202,6 +202,7 @@ fn generate_step(
                                         arg_window_id = Some(id);
                                     } else {
                                         next_arg = Some(s);
+                                        break;
                                     }
                                 }
                                 Value(val) => {
@@ -232,7 +233,7 @@ fn generate_step(
                                 Long("relative") if command == "windowmove" => {
                                     opt_relative = true;
                                 }
-                                Value(val) if arg_window_id.is_none() => {
+                                Value(val) if arg_window_id.is_none() && arg_x.is_none() => {
                                     let s = val.string()?;
                                     if let Some(id) = to_window_id(&s) {
                                         arg_window_id = Some(id);
@@ -307,7 +308,7 @@ fn generate_step(
                         let mut arg_desktop_id: Option<i32> = None;
                         while let Some(arg) = next_maybe_num(parser)? {
                             match arg {
-                                Value(val) if arg_window_id.is_none() => {
+                                Value(val) if arg_window_id.is_none() && arg_desktop_id.is_none() => {
                                     let s = val.string()?;
                                     if let Some(id) = to_window_id(&s) {
                                         arg_window_id = Some(id);
