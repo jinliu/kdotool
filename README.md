@@ -61,6 +61,8 @@ These commands generate a window stack that following _window action_ commands c
   - NOTE:
     - `--screen` (KDE 5 only)
 - `getactivewindow`
+- `getmouselocation [--shell]`
+  - Window stack contains the topmost window under the mouse pointer.
 
 ### Window Actions
 
