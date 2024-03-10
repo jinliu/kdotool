@@ -224,6 +224,26 @@ pub const STEP_GLOBAL_ACTION: &str = r#"
 pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "get_desktop"           => "output_result(workspace_currentDesktop());",
     "set_desktop"           => "workspace_setCurrentDesktop({{{n}}});",
-    "get_num_desktops"           => "output_result(workspace_numDesktops());",
-    "set_num_desktops"           => "workspace_setNumDesktops({{{n}}})",
+    "get_num_desktops"      => "output_result(workspace_numDesktops());",
+    "set_num_desktops"      => "workspace_setNumDesktops({{{n}}})",
+    "getmouselocation"      => r#"
+        let p = workspace.cursorPos;
+        let screen = workspace.screenAt(p);
+        let screen_id = workspace.screens.indexOf(screen);
+        let window_list = workspace.windowAt(p);
+        let window_id = "";
+        window_stack = [];
+        if (window_list.length > 0) {
+            window_id = window_list[0].internalId;
+            window_stack.push(window_list[0]);
+        }
+        {{#if shell}}
+        output_result("X="+p.x);
+        output_result("Y="+p.y);
+        output_result("SCREEN="+screen_id);
+        output_result("WINDOW="+window_id);
+        {{else}}
+        output_result(`x:${p.x} y:${p.y} screen:${screen_id} window:${window_id}`);
+        {{/if}}
+    "#,
 };

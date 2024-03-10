@@ -63,6 +63,13 @@ Window Query Commands:
     getactivewindow
         Select the currently active window.
 
+    getmouselocation [--shell]
+        Outputs the x, y, screen, and window id of the mouse cursor.
+        
+        OPTIONS:
+        --shell
+            output shell data you can eval.
+
 Window Action Commands:
 
     General Syntax:

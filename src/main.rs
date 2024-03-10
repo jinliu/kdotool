@@ -70,7 +70,7 @@ fn generate_script(
     loop {
         parser = reset_parser(parser)?;
 
-        let step_result = generate_step(&command, &mut parser, &reg, &render_context)
+        let step_result = generate_step(&command, &mut parser, &reg, &render_context, &globals)
             .with_context(|| format!("in command '{command}'"))?;
 
         full_script.push_str(&step_result.script);
@@ -109,6 +109,7 @@ fn generate_step(
     parser: &mut Parser,
     reg: &handlebars::Handlebars,
     render_context: &handlebars::Context,
+    globals: &Globals,
 ) -> anyhow::Result<StepResult> {
     use lexopt::prelude::*;
 
@@ -415,6 +416,33 @@ fn generate_step(
                         } else {
                             return Err(anyhow!("missing argument 'num'"));
                         }
+                    }
+
+                    "getmouselocation" => {
+                        if globals.kde5 {
+                            return Err(anyhow!("'getmouselocation' is not supported in KDE 5"));
+                        }
+
+                        let mut opt_shell = false;
+                        while let Some(arg) = next_maybe_num(parser)? {
+                            match arg {
+                                Long("shell") => {
+                                    opt_shell = true;
+                                }
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
+                                }
+                                _ => {
+                                    return Err(arg.unexpected().into());
+                                }
+                            }
+                        }
+                        add_context(&mut render_context, "shell", opt_shell);
+                        action_script = reg.render_template_with_context(
+                            GLOBAL_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?;
                     }
 
                     _ => {
