@@ -178,6 +178,7 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "getwindowname"         => "output_result(w.caption);",
     "getwindowclassname"    => "output_result(w.resourceClass);",
     "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}{{#if kde5}} (screen: ${window_screen(w)}){{/if}}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
+    "getwindowid"           => "output_result(w.internalId);",
     "getwindowpid"          => "output_result(w.pid);",
     "windowminimize"        => "w.minimized = true;",
     "windowraise"           => "workspace_raiseWindow(w);",

@@ -41,6 +41,8 @@ Window Query Commands:
         --name
             Match against the window name. This is the same string that is
             displayed in the window titlebar.
+        --id
+            Match windows that belong to a specific id.
         --pid PID
             Match windows that belong to a specific process id. This may not
             work for some X applications that do not set this metadata on its
@@ -94,6 +96,10 @@ Window Action Commands:
     getwindowgeometry [WINDOW]
         Output the geometry (location and position) of a window. The values
         include: x, y, width, height, and (KDE 5 only) screen number.
+
+    getwindowid [WINDOW]
+        Output the ID of a window.
+
 
     getwindowpid [WINDOW]
         Output the PID owning a window. This requires effort from the
