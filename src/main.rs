@@ -634,7 +634,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    if next_arg.is_none() || opt_help {
+    if !opt_remove && next_arg.is_none() || opt_help {
         help();
         return Ok(());
     }
