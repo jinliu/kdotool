@@ -46,6 +46,7 @@ The following can be used in chained commands:
 
 - `savewindowstack _name_` Save the current window stack to a variable
 - `loadwindowstack _name_` Load a previously saved window stack
+- `getwindowid` Print the window id of a window in the window stack
 
 ## Supported xdotool Commands
 
