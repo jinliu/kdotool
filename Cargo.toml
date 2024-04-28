@@ -20,7 +20,7 @@ anyhow = "1.0.75"
 chrono = "0.4.31"
 dbus = "0.9.7"
 env_logger = "0.10.1"
-handlebars = "4.5.0"
+handlebars = "5.1.2"
 lexopt = "0.3.0"
 log = "0.4.20"
 phf = { version = "0.11.2", features = ["macros"] }
