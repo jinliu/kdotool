@@ -70,7 +70,7 @@ fn generate_script(
     loop {
         parser = reset_parser(parser)?;
 
-        let step_result = generate_step(&command, &mut parser, &reg, &render_context, &globals)
+        let step_result = generate_step(&command, &mut parser, &reg, &render_context, globals)
             .with_context(|| format!("in command '{command}'"))?;
 
         full_script.push_str(&step_result.script);
@@ -309,7 +309,9 @@ fn generate_step(
                         let mut arg_desktop_id: Option<i32> = None;
                         while let Some(arg) = next_maybe_num(parser)? {
                             match arg {
-                                Value(val) if arg_window_id.is_none() && arg_desktop_id.is_none() => {
+                                Value(val)
+                                    if arg_window_id.is_none() && arg_desktop_id.is_none() =>
+                                {
                                     let s = val.string()?;
                                     if let Some(id) = to_window_id(&s) {
                                         arg_window_id = Some(id);
