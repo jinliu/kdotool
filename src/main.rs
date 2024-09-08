@@ -681,6 +681,9 @@ fn main() -> anyhow::Result<()> {
         .unwrap()
         .to_string_lossy()
         .into();
+    if context.script_name.is_empty() {
+        context.script_name.clone_from(&context.marker);
+    }
 
     let script_contents = generate_script(&context, parser, &next_arg.unwrap())?;
 
@@ -700,7 +703,12 @@ fn main() -> anyhow::Result<()> {
         "loadScript",
         (script_file_path.to_str().unwrap(), &context.script_name),
     )?;
+    if script_id < 0 {
+        return Err(anyhow!("Failed to load script. A script with the same name may already exist. Please use `--remove` to remove it first."));
+    }
+
     log::debug!("Script ID: {script_id}");
+    log::debug!("Script name: {}", context.script_name);
 
     log::debug!("===== Run script =====");
     let script_proxy = kwin_conn.with_proxy(
@@ -770,9 +778,7 @@ fn main() -> anyhow::Result<()> {
     if !context.shortcut.is_empty() {
         println!("Shortcut registered: {}", context.shortcut);
         println!("Script ID: {script_id}");
-        if !context.script_name.is_empty() {
-            println!("Script name: {}", context.script_name);
-        }
+        println!("Script name: {}", context.script_name);
     }
 
     Ok(())
