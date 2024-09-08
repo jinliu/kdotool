@@ -1,5 +1,7 @@
 pub const SCRIPT_HEADER: &str = r#"
+{{#if debug}}
 print("{{{marker}}} START");
+{{/if}}
 
 function output_debug(message) {
     {{#if debug}}
@@ -15,10 +17,11 @@ function output_error(message) {
 
 function output_result(message) {
     if (message == null) {
-        print("{{{marker}}} RESULT null");
-        return;
+        message = "null";
     }
+    {{#if debug}}
     print("{{{marker}}} RESULT", message);
+    {{/if}}
     callDBus("{{{dbus_addr}}}", "/", "", "result", message.toString());
 }
 
@@ -75,7 +78,9 @@ registerShortcut("{{#if script_name}}{{{script_name}}}{{else}}{{{marker}}}{{/if}
 run();
 {{/if}}
 
+{{#if debug}}
 print("{{{marker}}} FINISH");
+{{/if}}
 "#;
 
 pub const STEP_SEARCH: &str = r#"
