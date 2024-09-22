@@ -55,11 +55,15 @@ workspace_numDesktops                 = () => workspace.desktops.length;
 workspace_setNumDesktops              = (n) => { output_error("`set_num_desktops` unsupported in KDE 6"); };
 window_x11DesktopIds                  = (window) => window.desktops.map((d) => d.x11DesktopNumber);
 window_setX11DesktopId                = (window, id) => {
-    let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
-    if (d) {
-        window.desktops = [d];
+    if (id < 0) {
+        window.desktops = [workspace.currentDesktop];
     } else {
-        output_error(`Invalid desktop number ${id}`);
+        let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
+        if (d) {
+            window.desktops = [d];
+        } else {
+            output_error(`Invalid desktop number ${id}`);
+        }
     }
 };
 window_screen                         = (window) => { output_error("`search --screen` unsupported in KDE 6"); };

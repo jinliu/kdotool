@@ -90,6 +90,7 @@ These commands either take a window-id argument, or use the window stack.
   - MISSING: `--sync`
 - windowclose
 - `set_desktop_for_window`
+  - NOTE: use "current_desktop" to refer to the current desktop
 - `get_desktop_for_window`
 - `windowstate`
   - Supported properties:

@@ -306,7 +306,7 @@ fn generate_step(
                     }
 
                     "set_desktop_for_window" => {
-                        let mut arg_desktop_id: Option<i32> = None;
+                        let mut arg_desktop_id: Option<String> = None;
                         while let Some(arg) = next_maybe_num(parser)? {
                             match arg {
                                 Value(val)
@@ -316,11 +316,11 @@ fn generate_step(
                                     if let Some(id) = to_window_id(&s) {
                                         arg_window_id = Some(id);
                                     } else {
-                                        arg_desktop_id = Some(s.parse()?);
+                                        arg_desktop_id = Some(s);
                                     }
                                 }
                                 Value(val) if arg_desktop_id.is_none() => {
-                                    arg_desktop_id = Some(val.parse()?);
+                                    arg_desktop_id = Some(val.string()?);
                                 }
                                 Value(val) => {
                                     next_arg = Some(val.string()?);
@@ -331,8 +331,24 @@ fn generate_step(
                                 }
                             }
                         }
+                        let desktop_id = match arg_desktop_id {
+                            Some(id) => {
+                                if let Ok(n) = id.parse::<i32>() {
+                                    if n >= 0 {
+                                        n
+                                    } else {
+                                        return Err(anyhow!("invalid desktop id '{id}'"));
+                                    }
+                                } else if id.to_lowercase() == "current_desktop" {
+                                    -1
+                                } else {
+                                    return Err(anyhow!("invalid desktop id '{id}'"));
+                                }
+                            }
+                            None => return Err(anyhow!("missing argument 'desktop_id'")),
+                        };
                         let mut render_context = render_context.clone();
-                        add_context(&mut render_context, "desktop_id", arg_desktop_id);
+                        add_context(&mut render_context, "desktop_id", desktop_id);
                         action_script = reg.render_template_with_context(
                             WINDOW_ACTIONS.get(command).unwrap(),
                             &render_context,
