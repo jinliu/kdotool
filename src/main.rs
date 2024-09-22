@@ -748,20 +748,26 @@ fn main() -> anyhow::Result<()> {
         let _: () = script_proxy.method_call("org.kde.kwin.Script", "stop", ())?;
     }
 
-    let journal = Command::new("journalctl")
-        .arg(format!(
-            "--since={}",
-            start_time.format("%Y-%m-%d %H:%M:%S")
-        ))
-        .arg("--user")
-        .arg("--user-unit=plasma-kwin_wayland.service")
-        .arg("--user-unit=plasma-kwin_x11.service")
-        .arg("QT_CATEGORY=js")
-        .arg("QT_CATEGORY=kwin_scripting")
-        .arg("--output=cat")
-        .output()?;
-    let output = String::from_utf8(journal.stdout)?;
-    log::debug!("KWin log from the systemd journal:\n{}", output.trim_end());
+    if context.debug {
+        if let Ok(journal) = Command::new("journalctl")
+            .arg(format!(
+                "--since={}",
+                start_time.format("%Y-%m-%d %H:%M:%S")
+            ))
+            .arg("--user")
+            .arg("--user-unit=plasma-kwin_wayland.service")
+            .arg("--user-unit=plasma-kwin_x11.service")
+            .arg("QT_CATEGORY=js")
+            .arg("QT_CATEGORY=kwin_scripting")
+            .arg("--output=cat")
+            .output()
+        {
+            let output = String::from_utf8(journal.stdout)?;
+            log::debug!("KWin log from the systemd journal:\n{}", output.trim_end());
+        } else {
+            log::debug!("Failed getting KWin log from the systemd journal.");
+        }
+    }
 
     log::debug!("===== Output =====");
     let messages = MESSAGES.read().unwrap();
