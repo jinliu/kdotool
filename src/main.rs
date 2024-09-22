@@ -662,7 +662,7 @@ fn main() -> anyhow::Result<()> {
         kwin_conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
 
     if opt_remove {
-        kwin_proxy.method_call(
+        let _: () = kwin_proxy.method_call(
             "org.kde.kwin.Scripting",
             "unloadScript",
             (&context.script_name,),
@@ -743,9 +743,9 @@ fn main() -> anyhow::Result<()> {
     });
 
     let start_time = chrono::Local::now();
-    script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
+    let _: () = script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
     if context.shortcut.is_empty() {
-        script_proxy.method_call("org.kde.kwin.Script", "stop", ())?;
+        let _: () = script_proxy.method_call("org.kde.kwin.Script", "stop", ())?;
     }
 
     let journal = Command::new("journalctl")
