@@ -1,5 +1,9 @@
 # Change log
 
+## v0.2.2 (2024-09-28)
+
+Added support for `no_border` to `windowstate`
+
 ## v0.2.1 (2023-11-23)
 
 Reduced binary size.
