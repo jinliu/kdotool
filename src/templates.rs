@@ -224,6 +224,7 @@ pub const WINDOWSTATE_PROPERTIES: phf::Map<&'static str, &'static str> = phf::ph
     "fullscreen" => "fullScreen",
     "shaded" => "shade",
     "demands_attention" => "demandsAttention",
+    "no_border" => "noBorder",
 };
 
 pub const STEP_GLOBAL_ACTION: &str = r#"
