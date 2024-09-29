@@ -1,6 +1,6 @@
 # Change log
 
-## v0.2.2 (2024-09-28)
+## Next Release (TBD)
 
 Added support for `no_border` to `windowstate`
 

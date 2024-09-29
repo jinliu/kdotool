@@ -144,6 +144,7 @@ Window Action Commands:
         FULLSCREEN - makes window fullscreen
         SHADED - rolls the window up
         DEMANDS_ATTENTION - marks window urgent or needing attention
+        NO_BORDER - window has no border
 
     get_desktop_for_window [WINDOW]
         Output the desktop number that a window is on.
