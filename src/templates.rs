@@ -225,6 +225,7 @@ pub const WINDOWSTATE_PROPERTIES: phf::Map<&'static str, &'static str> = phf::ph
     "shaded" => "shade",
     "demands_attention" => "demandsAttention",
     "no_border" => "noBorder",
+    "minimized" => "minimized",
 };
 
 pub const STEP_GLOBAL_ACTION: &str = r#"

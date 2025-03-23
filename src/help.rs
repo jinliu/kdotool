@@ -145,6 +145,7 @@ Window Action Commands:
         SHADED - rolls the window up
         DEMANDS_ATTENTION - marks window urgent or needing attention
         NO_BORDER - window has no border
+	MINIMIZED - set minimized state, can toggle between minimize or maximize.
 
     get_desktop_for_window [WINDOW]
         Output the desktop number that a window is on.
