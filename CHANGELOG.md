@@ -3,6 +3,7 @@
 ## Next Release (TBD)
 
 Added support for `no_border` to `windowstate`
+Added support for `minimized` to `windowstate`
 
 ## v0.2.1 (2023-11-23)
 

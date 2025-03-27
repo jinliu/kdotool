@@ -102,6 +102,7 @@ These commands either take a window-id argument, or use the window stack.
     - shaded
     - demands_attention
     - no_border
+    - minimized
   - MISSING:
     - modal
     - sticky
