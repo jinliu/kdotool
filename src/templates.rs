@@ -164,10 +164,12 @@ pub const STEP_ACTION_ON_WINDOW_ID: &str = r#"
 pub const STEP_ACTION_ON_STACK_ITEM: &str = r#"
     output_debug("STEP {{{step_name}}}")
     if (window_stack.length > 0) {
-        if ({{{item_index}}} > window_stack.length || {{{item_index}}} < 1) {
-            output_error("Invalid window stack selection '{{{item_index}}}' (out of range)");
+        const item_index = {{{item_index}}};
+        const window_index = item_index > 0 ? item_index - 1 : window_stack.length + item_index;
+        if (window_index >= window_stack.length || window_index < 0) {
+            output_error("Invalid window stack selection '%{{{item_index}}}' (out of range)");
         } else {
-            let w = window_stack[{{{item_index}}}-1];
+            let w = window_stack[window_index];
             {{{action}}}
         }
     }
