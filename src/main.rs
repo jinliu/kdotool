@@ -504,6 +504,7 @@ fn step_search(
         match_role: bool,
         match_name: bool,
         match_pid: bool,
+        match_id: bool,
         pid: i32,
         match_desktop: bool,
         desktop: i32,
@@ -553,6 +554,9 @@ fn step_search(
                 opt.match_pid = true;
                 opt.pid = parser.value()?.parse()?;
             }
+            Long("id") => {
+                opt.match_id = true;
+            }
             Long("desktop") => {
                 opt.match_desktop = true;
                 opt.desktop = parser.value()?.parse()?;
@@ -582,11 +586,13 @@ fn step_search(
             }
         }
     }
-    if !(opt.match_class || opt.match_classname || opt.match_role || opt.match_name) {
+    if !(opt.match_class || opt.match_classname || opt.match_role || opt.match_name || opt.match_id)
+    {
         opt.match_class = true;
         opt.match_classname = true;
         opt.match_role = true;
         opt.match_name = true;
+        opt.match_id = true;
     }
     let render_context = handlebars::Context::wraps(opt)?;
     Ok(StepResult {

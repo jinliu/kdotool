@@ -115,6 +115,10 @@ pub const STEP_SEARCH: &str = r#"
             {{#if match_all}}&&{{else}}||{{/if}}
             w.pid == {{{pid}}}
             {{/if}}
+            {{#if match_id}}
+            {{#if match_all}}&&{{else}}||{{/if}}
+            w.internalId.toString().search(re) >= 0
+            {{/if}}
         ) {
             {{#if match_desktop}}
             if (window_x11DesktopIds(w).indexOf({{{desktop}}}) < 0) continue;
