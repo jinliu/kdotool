@@ -5,7 +5,7 @@ print("{{{marker}}} START");
 
 function output_debug(message) {
     {{#if debug}}
-    print("{{{marker}}} DEBUG", message);
+    // print("{{{marker}}} DEBUG", message);
     callDBus("{{{dbus_addr}}}", "/", "", "debug", message.toString());
     {{/if}}
 }
