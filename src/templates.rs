@@ -140,6 +140,9 @@ pub const STEP_SEARCH: &str = r#"
             }
         }
     }
+    if (window_stack.length == 0) {
+        output_error("");
+    }
 "#;
 
 pub const STEP_GETACTIVEWINDOW: &str = r#"
