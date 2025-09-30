@@ -792,11 +792,13 @@ fn main() -> anyhow::Result<()> {
     }
 
     log::debug!("===== Output =====");
+    let mut errors = 0;
     let messages = MESSAGES.read().unwrap();
     for (msgtype, message) in messages.iter() {
         if msgtype == "result" {
             println!("{message}");
         } else if msgtype == "error" {
+            errors += 1;
             eprintln!("ERROR: {message}");
         } else {
             println!("{msgtype}: {message}");
@@ -809,5 +811,8 @@ fn main() -> anyhow::Result<()> {
         println!("Script name: {}", context.script_name);
     }
 
+    if errors > 0 {
+        std::process::exit(1);
+    }
     Ok(())
 }

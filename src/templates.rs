@@ -132,6 +132,9 @@ pub const STEP_SEARCH: &str = r#"
             }
         }
     }
+    if (window_stack.length == 0) {
+        output_error("Could not find any matching windows");
+    }
 "#;
 
 pub const STEP_GETACTIVEWINDOW: &str = r#"
