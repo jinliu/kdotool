@@ -799,7 +799,9 @@ fn main() -> anyhow::Result<()> {
             println!("{message}");
         } else if msgtype == "error" {
             errors += 1;
-            eprintln!("ERROR: {message}");
+            if !message.is_empty() {
+                eprintln!("ERROR: {message}");
+            }
         } else {
             println!("{msgtype}: {message}");
         }
