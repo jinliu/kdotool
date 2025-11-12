@@ -668,6 +668,8 @@ fn main() -> anyhow::Result<()> {
             Some("kdotool"),
             if context.debug {
                 log::LevelFilter::Debug
+            } else if opt_quiet {
+                log::LevelFilter::Error
             } else {
                 log::LevelFilter::Info
             },
@@ -795,7 +797,7 @@ fn main() -> anyhow::Result<()> {
             if !opt_quiet && !message.is_empty() {
                 eprintln!("ERROR: {message}");
             }
-        } else if !opt_quiet && msgtype == "result" {
+        } else if msgtype == "result" {
             println!("{message}");
         } else if !opt_quiet {
             println!("{msgtype}: {message}");
