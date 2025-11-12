@@ -514,63 +514,54 @@ fn step_search(
         screen: i32,
         limit: u32,
         match_all: bool,
+        match_case: bool,
         search_term: String,
     }
 
+    let context = render_context.data().as_object().unwrap();
     let mut opt = Options {
-        debug: render_context
-            .data()
-            .as_object()
-            .unwrap()
-            .get("debug")
-            .unwrap()
-            .as_bool()
-            .unwrap(),
-        kde5: render_context
-            .data()
-            .as_object()
-            .unwrap()
-            .get("debug")
-            .unwrap()
-            .as_bool()
-            .unwrap(),
+        debug: context.get("debug").unwrap().as_bool().unwrap(),
+        kde5: context.get("debug").unwrap().as_bool().unwrap(),
         ..Default::default()
     };
 
     let mut next_arg = None;
     while let Some(arg) = parser.next()? {
         match arg {
-            Long("class") => {
+            Short('C') | Long("case-sensitive") => {
+                opt.match_case = true;
+            }
+            Short('c') | Long("class") => {
                 opt.match_class = true;
             }
-            Long("classname") => {
+            Short('n') | Long("classname") => {
                 opt.match_classname = true;
             }
-            Long("role") => {
+            Short('r') | Long("role") => {
                 opt.match_role = true;
             }
-            Long("name") => {
+            Short('t') | Long("title") | Long("name") => {
                 opt.match_name = true;
             }
-            Long("pid") => {
+            Short('p') | Long("pid") => {
                 opt.match_pid = true;
                 opt.pid = parser.value()?.parse()?;
             }
             Long("id") => {
                 opt.match_id = true;
             }
-            Long("desktop") => {
+            Short('D') | Long("desktop") => {
                 opt.match_desktop = true;
                 opt.desktop = parser.value()?.parse()?;
             }
-            Long("screen") => {
+            Short('s') | Long("screen") => {
                 opt.match_screen = true;
                 opt.screen = parser.value()?.parse()?;
             }
-            Long("limit") => {
+            Short('l') | Long("limit") => {
                 opt.limit = parser.value()?.parse()?;
             }
-            Long("all") => {
+            Short('a') | Long("all") => {
                 opt.match_all = true;
             }
             Long("any") => {
