@@ -512,32 +512,23 @@ fn step_search(
         screen: i32,
         limit: u32,
         match_all: bool,
+        match_case: bool,
         search_term: String,
     }
 
+    let context = render_context.data().as_object().unwrap();
     let mut opt = Options {
-        debug: render_context
-            .data()
-            .as_object()
-            .unwrap()
-            .get("debug")
-            .unwrap()
-            .as_bool()
-            .unwrap(),
-        kde5: render_context
-            .data()
-            .as_object()
-            .unwrap()
-            .get("debug")
-            .unwrap()
-            .as_bool()
-            .unwrap(),
+        debug: context.get("debug").unwrap().as_bool().unwrap(),
+        kde5: context.get("debug").unwrap().as_bool().unwrap(),
         ..Default::default()
     };
 
     let mut next_arg = None;
     while let Some(arg) = parser.next()? {
         match arg {
+            Short('c') | Long("case") => {
+                opt.match_case = true;
+            }
             Long("class") => {
                 opt.match_class = true;
             }

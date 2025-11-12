@@ -89,7 +89,9 @@ print("{{{marker}}} FINISH");
 
 pub const STEP_SEARCH: &str = r#"
     output_debug("STEP search {{{search_term}}}")
-    const re = new RegExp(String.raw`{{{search_term}}}`, "i");
+    const match_case = {{{match_case}}};
+    const re_opts = (match_case ? "" : "i");
+    const re = new RegExp(String.raw`{{{search_term}}}`, re_opts);
     var t = workspace_windowList();
     window_stack = [];
     for (var i=0; i<t.length; i++) {

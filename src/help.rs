@@ -32,6 +32,8 @@ Window Query Commands:
         specify one or more of --name, --class, --classname, or --role).
 
         OPTIONS:
+        -c, --case
+            Match against the window title case-sensitively.
         --class
             Match against the window class.
         --classname
