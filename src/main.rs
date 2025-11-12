@@ -526,40 +526,40 @@ fn step_search(
     let mut next_arg = None;
     while let Some(arg) = parser.next()? {
         match arg {
-            Short('c') | Long("case") => {
+            Short('C') | Long("case-sensitive") => {
                 opt.match_case = true;
             }
-            Long("class") => {
+            Short('c') | Long("class") => {
                 opt.match_class = true;
             }
-            Long("classname") => {
+            Short('n') | Long("classname") => {
                 opt.match_classname = true;
             }
-            Long("role") => {
+            Short('r') | Long("role") => {
                 opt.match_role = true;
             }
-            Long("name") => {
+            Short('t') | Long("title") => {
                 opt.match_name = true;
             }
-            Long("pid") => {
+            Short('p') | Long("pid") => {
                 opt.match_pid = true;
                 opt.pid = parser.value()?.parse()?;
             }
             Long("id") => {
                 opt.match_id = true;
             }
-            Long("desktop") => {
+            Short('D') | Long("desktop") => {
                 opt.match_desktop = true;
                 opt.desktop = parser.value()?.parse()?;
             }
-            Long("screen") => {
+            Short('s') | Long("screen") => {
                 opt.match_screen = true;
                 opt.screen = parser.value()?.parse()?;
             }
-            Long("limit") => {
+            Short('l') | Long("limit") => {
                 opt.limit = parser.value()?.parse()?;
             }
-            Long("all") => {
+            Short('a') | Long("all") => {
                 opt.match_all = true;
             }
             Long("any") => {
