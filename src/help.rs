@@ -41,7 +41,7 @@ Window Query Commands:
             Match against the window classname.
         -r, --role
             Match against the window role.
-        -t, --title
+        -t, --title, --name
             Match against the window title. This is the same string that is
             displayed in the window titlebar.
         -p, --pid PID

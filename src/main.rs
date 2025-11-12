@@ -538,7 +538,7 @@ fn step_search(
             Short('r') | Long("role") => {
                 opt.match_role = true;
             }
-            Short('t') | Long("title") => {
+            Short('t') | Long("title") | Long("name") => {
                 opt.match_name = true;
             }
             Short('p') | Long("pid") => {
