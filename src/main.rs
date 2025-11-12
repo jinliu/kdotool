@@ -613,6 +613,7 @@ fn main() -> anyhow::Result<()> {
     let mut next_arg: Option<String> = None;
     let mut opt_help = false;
     let mut opt_version = false;
+    let mut opt_quiet = false;
     let mut opt_dry_run = false;
     let mut opt_remove = false;
 
@@ -630,6 +631,9 @@ fn main() -> anyhow::Result<()> {
             }
             Short('n') | Long("dry-run") => {
                 opt_dry_run = true;
+            }
+            Short('q') | Long("quiet") => {
+                opt_quiet = true;
             }
             Long("shortcut") => {
                 context.shortcut = parser.value()?.string()?;
@@ -666,6 +670,8 @@ fn main() -> anyhow::Result<()> {
             Some("kdotool"),
             if context.debug {
                 log::LevelFilter::Debug
+            } else if opt_quiet {
+                log::LevelFilter::Error
             } else {
                 log::LevelFilter::Info
             },
@@ -788,14 +794,14 @@ fn main() -> anyhow::Result<()> {
     let mut errors = 0;
     let messages = MESSAGES.read().unwrap();
     for (msgtype, message) in messages.iter() {
-        if msgtype == "result" {
-            println!("{message}");
-        } else if msgtype == "error" {
+        if msgtype == "error" {
             errors += 1;
-            if !message.is_empty() {
+            if !opt_quiet && !message.is_empty() {
                 eprintln!("ERROR: {message}");
             }
-        } else {
+        } else if msgtype == "result" {
+            println!("{message}");
+        } else if !opt_quiet {
             println!("{msgtype}: {message}");
         }
     }

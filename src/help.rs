@@ -14,6 +14,7 @@ USAGE:
 Options:
     -h, --help         Show this help
     -v, --version      Show program version
+    -q, --quiet        Don't print anything to stdout. Useful for scripting.
     -d, --debug        Enable debug output
     -n, --dry-run      Don't actually run the script. Just print it to stdout.
 
