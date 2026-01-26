@@ -15,10 +15,10 @@ jobs:
         uses: actions/checkout@main
 
       - name: APT Update
-        run: sudo apt-get update
+        run: apt-get update
 
       - name: Install Dependencies
-        run: sudo apt-get install -y libdbus-1-dev
+        run: apt-get install -y libdbus-1-dev
 
       - name: Test
         run: cargo +nightly test --verbose
