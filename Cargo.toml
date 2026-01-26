@@ -1,6 +1,6 @@
 [package]
 name = "kdotool"
-version = "0.2.2-SNAPSHOT"
+version = "0.2.2"
 description = "A xdotool-like tool to manipulate windows on KDE Wayland"
 authors = ["Jin Liu <m.liu.jin@gmail.com>"]
 repository = "https://github.com/jinliu/kdotool"
