@@ -1,0 +1,30 @@
+name: Release
+on:
+  release:
+    types: [ "published" ]
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: APT Update
+        run: sudo apt-get update
+
+      - name: Install Dependencies
+        run: sudo apt-get install -y libdbus-1-dev
+
+      - name: Build
+        run: cargo +nightly build --verbose --profile release
+
+      - name: Compress
+        run: gzip --verbose --force --best --keep target/release/kdotool
+
+      - name: Upload
+        run: gh release upload ${{ github.event.release.tag_name }} target/release/kdotool.gz
