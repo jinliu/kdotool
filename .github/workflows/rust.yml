@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@main
+        with:
+          fetch-depth: 0
 
       - name: APT Update
         run: sudo apt-get update
