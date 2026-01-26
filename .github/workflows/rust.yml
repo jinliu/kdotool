@@ -24,6 +24,8 @@ jobs:
 
       - name: Super-Linter
         uses: super-linter/super-linter@main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Test
         run: cargo +nightly test --verbose
