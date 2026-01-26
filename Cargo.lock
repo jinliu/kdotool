@@ -423,7 +423,7 @@ dependencies = [
 
 [[package]]
 name = "kdotool"
-version = "0.2.2-SNAPSHOT"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "cargo-husky",
