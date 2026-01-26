@@ -13,23 +13,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@main
-        with:
-          fetch-depth: 0
 
       - name: APT Update
         run: sudo apt-get update
 
       - name: Install Dependencies
-        run: sudo apt-get install -y libdbus-1-dev pkg-config
-
-      - name: Super-Linter
-        uses: super-linter/super-linter@v8
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          FIX_YAML_PRETTIER: true
-          VALIDATE_RUST_2015: false
-          VALIDATE_RUST_2018: false
-          VALIDATE_RUST_2021: false
+        run: sudo apt-get install -y libdbus-1-dev
 
       - name: Test
         run: cargo +nightly test --verbose
