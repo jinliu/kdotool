@@ -12,7 +12,7 @@ use std::process::Command;
 use std::sync::RwLock;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use dbus::{
     blocking::{Connection, SyncConnection},
     channel::MatchingReceiver,
@@ -601,10 +601,10 @@ fn main() -> anyhow::Result<()> {
 
     let mut parser = Parser::from_env();
 
-    if let Ok(version) = std::env::var("KDE_SESSION_VERSION") {
-        if version == "5" {
-            context.kde5 = true;
-        }
+    if let Ok(version) = std::env::var("KDE_SESSION_VERSION")
+        && version == "5"
+    {
+        context.kde5 = true;
     }
 
     // Parse global options
@@ -723,7 +723,9 @@ fn main() -> anyhow::Result<()> {
         (script_file_path.to_str().unwrap(), &context.script_name),
     )?;
     if script_id < 0 {
-        return Err(anyhow!("Failed to load script. A script with the same name may already exist. Please use `--remove` to remove it first."));
+        return Err(anyhow!(
+            "Failed to load script. A script with the same name may already exist. Please use `--remove` to remove it first."
+        ));
     }
 
     log::debug!("Script ID: {script_id}");
@@ -746,11 +748,11 @@ fn main() -> anyhow::Result<()> {
             MatchRule::new_method_call(),
             Box::new(|message, _connection| -> bool {
                 log::debug!("dbus message: {:?}", message);
-                if let Some(member) = message.member() {
-                    if let Some(arg) = message.get1() {
-                        let mut messages = MESSAGES.write().unwrap();
-                        messages.push((member.to_string(), arg));
-                    }
+                if let Some(member) = message.member()
+                    && let Some(arg) = message.get1()
+                {
+                    let mut messages = MESSAGES.write().unwrap();
+                    messages.push((member.to_string(), arg));
                 }
                 true
             }),
