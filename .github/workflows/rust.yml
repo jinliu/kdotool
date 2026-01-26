@@ -2,9 +2,7 @@ name: Rust
 
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [ "master", "main" ]
 
 env:
   CARGO_TERM_COLOR: always
