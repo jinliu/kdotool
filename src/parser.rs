@@ -5,7 +5,7 @@ pub fn reset_parser(mut parser: Parser) -> anyhow::Result<Parser> {
     Ok(lexopt::Parser::from_args(parser.raw_args()?))
 }
 
-pub fn next_maybe_num(parser: &mut Parser) -> anyhow::Result<Option<lexopt::Arg>> {
+pub fn next_maybe_num(parser: &'_ mut Parser) -> anyhow::Result<Option<lexopt::Arg<'_>>> {
     if let Some(number) = try_get_number(parser) {
         Ok(Some(lexopt::Arg::Value(number.into())))
     } else {

@@ -12,7 +12,7 @@ use std::process::Command;
 use std::sync::RwLock;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use dbus::{
     blocking::{Connection, SyncConnection},
     channel::MatchingReceiver,
@@ -504,6 +504,7 @@ fn step_search(
         match_role: bool,
         match_name: bool,
         match_pid: bool,
+        match_id: bool,
         pid: i32,
         match_desktop: bool,
         desktop: i32,
@@ -511,60 +512,54 @@ fn step_search(
         screen: i32,
         limit: u32,
         match_all: bool,
+        match_case: bool,
         search_term: String,
     }
 
+    let context = render_context.data().as_object().unwrap();
     let mut opt = Options {
-        debug: render_context
-            .data()
-            .as_object()
-            .unwrap()
-            .get("debug")
-            .unwrap()
-            .as_bool()
-            .unwrap(),
-        kde5: render_context
-            .data()
-            .as_object()
-            .unwrap()
-            .get("debug")
-            .unwrap()
-            .as_bool()
-            .unwrap(),
+        debug: context.get("debug").unwrap().as_bool().unwrap(),
+        kde5: context.get("debug").unwrap().as_bool().unwrap(),
         ..Default::default()
     };
 
     let mut next_arg = None;
     while let Some(arg) = parser.next()? {
         match arg {
-            Long("class") => {
+            Short('C') | Long("case-sensitive") => {
+                opt.match_case = true;
+            }
+            Short('c') | Long("class") => {
                 opt.match_class = true;
             }
-            Long("classname") => {
+            Short('n') | Long("classname") => {
                 opt.match_classname = true;
             }
-            Long("role") => {
+            Short('r') | Long("role") => {
                 opt.match_role = true;
             }
-            Long("name") => {
+            Short('t') | Long("title") | Long("name") => {
                 opt.match_name = true;
             }
-            Long("pid") => {
+            Short('p') | Long("pid") => {
                 opt.match_pid = true;
                 opt.pid = parser.value()?.parse()?;
             }
-            Long("desktop") => {
+            Long("id") => {
+                opt.match_id = true;
+            }
+            Short('D') | Long("desktop") => {
                 opt.match_desktop = true;
                 opt.desktop = parser.value()?.parse()?;
             }
-            Long("screen") => {
+            Short('s') | Long("screen") => {
                 opt.match_screen = true;
                 opt.screen = parser.value()?.parse()?;
             }
-            Long("limit") => {
+            Short('l') | Long("limit") => {
                 opt.limit = parser.value()?.parse()?;
             }
-            Long("all") => {
+            Short('a') | Long("all") => {
                 opt.match_all = true;
             }
             Long("any") => {
@@ -582,11 +577,13 @@ fn step_search(
             }
         }
     }
-    if !(opt.match_class || opt.match_classname || opt.match_role || opt.match_name) {
+    if !(opt.match_class || opt.match_classname || opt.match_role || opt.match_name || opt.match_id)
+    {
         opt.match_class = true;
         opt.match_classname = true;
         opt.match_role = true;
         opt.match_name = true;
+        opt.match_id = true;
     }
     let render_context = handlebars::Context::wraps(opt)?;
     Ok(StepResult {
@@ -604,16 +601,17 @@ fn main() -> anyhow::Result<()> {
 
     let mut parser = Parser::from_env();
 
-    if let Ok(version) = std::env::var("KDE_SESSION_VERSION") {
-        if version == "5" {
-            context.kde5 = true;
-        }
+    if let Ok(version) = std::env::var("KDE_SESSION_VERSION")
+        && version == "5"
+    {
+        context.kde5 = true;
     }
 
     // Parse global options
     let mut next_arg: Option<String> = None;
     let mut opt_help = false;
     let mut opt_version = false;
+    let mut opt_quiet = false;
     let mut opt_dry_run = false;
     let mut opt_remove = false;
 
@@ -631,6 +629,9 @@ fn main() -> anyhow::Result<()> {
             }
             Short('n') | Long("dry-run") => {
                 opt_dry_run = true;
+            }
+            Short('q') | Long("quiet") => {
+                opt_quiet = true;
             }
             Long("shortcut") => {
                 context.shortcut = parser.value()?.string()?;
@@ -667,6 +668,8 @@ fn main() -> anyhow::Result<()> {
             Some("kdotool"),
             if context.debug {
                 log::LevelFilter::Debug
+            } else if opt_quiet {
+                log::LevelFilter::Error
             } else {
                 log::LevelFilter::Info
             },
@@ -720,7 +723,9 @@ fn main() -> anyhow::Result<()> {
         (script_file_path.to_str().unwrap(), &context.script_name),
     )?;
     if script_id < 0 {
-        return Err(anyhow!("Failed to load script. A script with the same name may already exist. Please use `--remove` to remove it first."));
+        return Err(anyhow!(
+            "Failed to load script. A script with the same name may already exist. Please use `--remove` to remove it first."
+        ));
     }
 
     log::debug!("Script ID: {script_id}");
@@ -743,11 +748,11 @@ fn main() -> anyhow::Result<()> {
             MatchRule::new_method_call(),
             Box::new(|message, _connection| -> bool {
                 log::debug!("dbus message: {:?}", message);
-                if let Some(member) = message.member() {
-                    if let Some(arg) = message.get1() {
-                        let mut messages = MESSAGES.write().unwrap();
-                        messages.push((member.to_string(), arg));
-                    }
+                if let Some(member) = message.member()
+                    && let Some(arg) = message.get1()
+                {
+                    let mut messages = MESSAGES.write().unwrap();
+                    messages.push((member.to_string(), arg));
                 }
                 true
             }),
@@ -786,13 +791,17 @@ fn main() -> anyhow::Result<()> {
     }
 
     log::debug!("===== Output =====");
+    let mut errors = 0;
     let messages = MESSAGES.read().unwrap();
     for (msgtype, message) in messages.iter() {
-        if msgtype == "result" {
+        if msgtype == "error" {
+            errors += 1;
+            if !opt_quiet && !message.is_empty() {
+                eprintln!("ERROR: {message}");
+            }
+        } else if msgtype == "result" {
             println!("{message}");
-        } else if msgtype == "error" {
-            eprintln!("ERROR: {message}");
-        } else {
+        } else if !opt_quiet {
             println!("{msgtype}: {message}");
         }
     }
@@ -803,5 +812,8 @@ fn main() -> anyhow::Result<()> {
         println!("Script name: {}", context.script_name);
     }
 
+    if errors > 0 {
+        std::process::exit(1);
+    }
     Ok(())
 }

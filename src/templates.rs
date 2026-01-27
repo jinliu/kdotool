@@ -5,7 +5,7 @@ print("{{{marker}}} START");
 
 function output_debug(message) {
     {{#if debug}}
-    print("{{{marker}}} DEBUG", message);
+    // print("{{{marker}}} DEBUG", message);
     callDBus("{{{dbus_addr}}}", "/", "", "debug", message.toString());
     {{/if}}
 }
@@ -89,7 +89,9 @@ print("{{{marker}}} FINISH");
 
 pub const STEP_SEARCH: &str = r#"
     output_debug("STEP search {{{search_term}}}")
-    const re = new RegExp(String.raw`{{{search_term}}}`, "i");
+    const match_case = {{{match_case}}};
+    const re_opts = (match_case ? "" : "i");
+    const re = new RegExp(String.raw`{{{search_term}}}`, re_opts);
     var t = workspace_windowList();
     window_stack = [];
     for (var i=0; i<t.length; i++) {
@@ -115,6 +117,10 @@ pub const STEP_SEARCH: &str = r#"
             {{#if match_all}}&&{{else}}||{{/if}}
             w.pid == {{{pid}}}
             {{/if}}
+            {{#if match_id}}
+            {{#if match_all}}&&{{else}}||{{/if}}
+            w.internalId.toString().search(re) >= 0
+            {{/if}}
         ) {
             {{#if match_desktop}}
             if (window_x11DesktopIds(w).indexOf({{{desktop}}}) < 0) continue;
@@ -127,6 +133,9 @@ pub const STEP_SEARCH: &str = r#"
                 break;
             }
         }
+    }
+    if (window_stack.length == 0) {
+        output_error("");
     }
 "#;
 
@@ -160,10 +169,12 @@ pub const STEP_ACTION_ON_WINDOW_ID: &str = r#"
 pub const STEP_ACTION_ON_STACK_ITEM: &str = r#"
     output_debug("STEP {{{step_name}}}")
     if (window_stack.length > 0) {
-        if ({{{item_index}}} > window_stack.length || {{{item_index}}} < 1) {
-            output_error("Invalid window stack selection '{{{item_index}}}' (out of range)");
+        const item_index = {{{item_index}}};
+        const window_index = item_index > 0 ? item_index - 1 : window_stack.length + item_index;
+        if (window_index >= window_stack.length || window_index < 0) {
+            output_error("Invalid window stack selection '%{{{item_index}}}' (out of range)");
         } else {
-            let w = window_stack[{{{item_index}}}-1];
+            let w = window_stack[window_index];
             {{{action}}}
         }
     }
