@@ -341,6 +341,8 @@ fn generate_step(
                                     }
                                 } else if id.to_lowercase() == "current_desktop" {
                                     -1
+                                } else if id.to_lowercase() == "all" {
+                                    -2
                                 } else {
                                     return Err(anyhow!("invalid desktop id '{id}'"));
                                 }
