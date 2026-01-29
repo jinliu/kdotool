@@ -35,7 +35,13 @@ workspace_setCurrentDesktop           = (desktop) => { workspace.currentDesktop 
 workspace_numDesktops                 = () => workspace.desktops;
 workspace_setNumDesktops              = (n) => { workspace.desktops = n };
 window_x11DesktopIds                  = (window) => window.x11DesktopIds;
-window_setX11DesktopId                = (window, id) => { window.desktop = id; };
+window_setX11DesktopId                = (window, id) => {
+    if (id == -2) {
+        output_error("`all` unsupported in KDE 5");
+    } else {
+         window.desktop = id;
+    }
+};
 window_screen                         = (window) => window.screen;
 {{else}}
 workspace_windowList                  = () => workspace.windowList();
@@ -55,8 +61,10 @@ workspace_numDesktops                 = () => workspace.desktops.length;
 workspace_setNumDesktops              = (n) => { output_error("`set_num_desktops` unsupported in KDE 6"); };
 window_x11DesktopIds                  = (window) => window.desktops.map((d) => d.x11DesktopNumber);
 window_setX11DesktopId                = (window, id) => {
-    if (id < 0) {
+    if (id == -1) {
         window.desktops = [workspace.currentDesktop];
+    } else if (id == -2) {
+        window.onAllDesktops = true;
     } else {
         let d = workspace.desktops.find((d) => d.x11DesktopNumber == id);
         if (d) {
@@ -213,7 +221,7 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
 "#,
     "windowstate"           => "{{{windowstate}}}",
     "get_desktop_for_window"=> "output_result(window_x11DesktopIds(w)[0]);",
-    "set_desktop_for_window"=> "window_setX11DesktopId(w, {{{desktop_id}}})",
+    "set_desktop_for_window"=> "window_setX11DesktopId(w, {{{desktop_id}}});",
 };
 
 pub const WINDOWSTATE_PROPERTIES: phf::Map<&'static str, &'static str> = phf::phf_map! {

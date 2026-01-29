@@ -152,6 +152,7 @@ Window Action Commands:
 
     set_desktop_for_window [WINDOW] NUMBER
         Move a window to a different desktop.
+        Specify the desktop number or "current_desktop" or "all".
 
 Global Commands:
     get_desktop
