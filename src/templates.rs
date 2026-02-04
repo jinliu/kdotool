@@ -214,10 +214,12 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "windowmove"            => r#"
             output_debug(`Window: ${w.frameGeometry}`);
             output_debug(`Screen: ${workspace.virtualScreenSize}`);
-            {{#if x_percent}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}workspace.virtualScreenSize.width*{{{x_percent}}}/100;{{/if}}
-            {{#if y_percent}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}workspace.virtualScreenSize.height*{{{y_percent}}}/100;{{/if}}
-            {{#if x}}w.frameGeometry.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
-            {{#if y}}w.frameGeometry.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
+            let q = Object.assign({}, w.frameGeometry);
+            {{#if x_percent}}q.x={{#if relative}}w.x+{{/if}}workspace.virtualScreenSize.width*{{{x_percent}}}/100;{{/if}}
+            {{#if y_percent}}q.y={{#if relative}}w.y+{{/if}}workspace.virtualScreenSize.height*{{{y_percent}}}/100;{{/if}}
+            {{#if x}}q.x={{#if relative}}w.x+{{/if}}{{{x}}};{{/if}}
+            {{#if y}}q.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
+            w.frameGeometry = q;
 "#,
     "windowstate"           => "{{{windowstate}}}",
     "get_desktop_for_window"=> "output_result(window_x11DesktopIds(w)[0]);",
