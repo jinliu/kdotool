@@ -20,10 +20,10 @@ pub struct ActiveWindowInfo {
     pub title: String,
     pub class_name: String,
     pub pid: u32,
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Default, Serialize)]
@@ -79,8 +79,13 @@ fn get_active_window_info_impl() -> anyhow::Result<ActiveWindowInfo> {
     context.marker = format!("kdotool-lib-{unique_suffix}");
     context.script_name = context.marker.clone();
 
+    // Establish the DBus listener connection first so we know the address
+    // to embed in the generated KWin script.
+    let self_conn = SyncConnection::new_session()?;
+    context.dbus_addr = self_conn.unique_name().to_string();
+
     let script_contents = generate_script(&context)?;
-    let result_payload = run_script(&script_contents, &context)?;
+    let result_payload = run_script(&script_contents, &context, self_conn)?;
     parse_active_window_info(&result_payload)
 }
 
@@ -97,7 +102,7 @@ pub(crate) fn generate_script(globals: &Globals) -> anyhow::Result<String> {
     Ok(full_script)
 }
 
-pub(crate) fn run_script(script_contents: &str, context: &Globals) -> anyhow::Result<String> {
+pub(crate) fn run_script(script_contents: &str, context: &Globals, self_conn: SyncConnection) -> anyhow::Result<String> {
     enum ScriptMessage {
         Result(String),
         Error(String),
@@ -106,7 +111,6 @@ pub(crate) fn run_script(script_contents: &str, context: &Globals) -> anyhow::Re
     let kwin_conn = Connection::new_session()?;
     let kwin_proxy = kwin_conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
 
-    let self_conn = SyncConnection::new_session()?;
     let (tx, rx) = mpsc::channel();
 
     let _receiver = self_conn.start_receive(
@@ -159,7 +163,7 @@ pub(crate) fn run_script(script_contents: &str, context: &Globals) -> anyhow::Re
     let _: () = script_proxy.method_call("org.kde.kwin.Script", "stop", ())?;
 
     let start = Instant::now();
-    let timeout = Duration::from_secs(2);
+    let timeout = Duration::from_secs(5);
 
     let result = loop {
         self_conn.process(Duration::from_millis(100))?;
@@ -189,7 +193,17 @@ pub(crate) fn run_script(script_contents: &str, context: &Globals) -> anyhow::Re
 }
 
 pub(crate) fn parse_active_window_info(payload: &str) -> anyhow::Result<ActiveWindowInfo> {
-    serde_json::from_str(payload).context("failed to parse active window info")
+    // KWin sends JSON.stringify output as a DBus string, which arrives with
+    // escaped inner quotes. Try parsing directly first; if that fails, try
+    // interpreting as a JSON string literal to unescape it.
+    serde_json::from_str(payload)
+        .or_else(|_| {
+            let unescaped: String = serde_json::from_str(payload)
+                .context("failed to unescape payload")?;
+            serde_json::from_str(&unescaped)
+                .context("failed to parse unescaped payload")
+        })
+        .context("failed to parse active window info")
 }
 
 #[cfg(test)]
@@ -198,16 +212,16 @@ mod tests {
 
     #[test]
     fn parses_active_window_info() {
-        let payload = r#"{\"id\":\"0x123\",\"title\":\"Terminal\",\"class_name\":\"konsole\",\"pid\":4242,\"x\":10,\"y\":20,\"width\":800,\"height\":600}"#;
+        let payload = r#"{"id":"0x123","title":"Terminal","class_name":"konsole","pid":4242,"x":10,"y":20,"width":800,"height":600}"#;
         let info = parse_active_window_info(payload).expect("should parse payload");
 
         assert_eq!(info.id, "0x123");
         assert_eq!(info.title, "Terminal");
         assert_eq!(info.class_name, "konsole");
         assert_eq!(info.pid, 4242);
-        assert_eq!(info.x, 10);
-        assert_eq!(info.y, 20);
-        assert_eq!(info.width, 800);
-        assert_eq!(info.height, 600);
+        assert!((info.x - 10.0).abs() < f64::EPSILON);
+        assert!((info.y - 20.0).abs() < f64::EPSILON);
+        assert!((info.width - 800.0).abs() < f64::EPSILON);
+        assert!((info.height - 600.0).abs() < f64::EPSILON);
     }
 }
