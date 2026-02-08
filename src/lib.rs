@@ -114,7 +114,7 @@ pub(crate) fn run_script(script_contents: &str, context: &Globals) -> anyhow::Re
         Box::new(move |message, _connection| -> bool {
             if let Some(member) = message.member() {
                 if let Some(arg) = message.get1::<String>() {
-                    match member.as_str() {
+                    match member.as_ref() {
                         "result" => {
                             let _ = tx.send(ScriptMessage::Result(arg));
                         }
@@ -179,7 +179,7 @@ pub(crate) fn run_script(script_contents: &str, context: &Globals) -> anyhow::Re
         }
     };
 
-    let _ = kwin_proxy.method_call(
+    let _: Result<(), _> = kwin_proxy.method_call(
         "org.kde.kwin.Scripting",
         "unloadScript",
         (&context.script_name,),
