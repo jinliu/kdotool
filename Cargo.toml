@@ -9,6 +9,9 @@ keywords = ["xdotool", "wayland", "kde"]
 categories = ["command-line-utilities"]
 edition = "2024"
 
+[lib]
+path = "src/lib.rs"
+
 [profile.release]
 strip = true  # Automatically strip symbols from the binary.
 opt-level = "z"  # Optimize for size.
