@@ -12,7 +12,7 @@ This program uses KWin's scripting API to control windows. In each invocation,
 it generates a KWin script on-the-fly, loads it into KWin, runs it, and then
 deletes it, using KWin's DBus interface.
 
-This program should work with both KDE 5 and the upcoming KDE 6. It should work
+This program should work with both KDE 5 and 6. It should work
 with both Wayland and X11 sessions. (But you can use the original `xdotool` in
 X11, anyway. So this is mainly for Wayland.)
 
@@ -21,7 +21,7 @@ API. Some might be not even possible in Wayland. See below for details.
 
 Please note that the `window id` this program uses is KWin's internal window id,
 which looks like a UUID (`{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}`). It's not
-a X11 window id.
+an X11 window id.
 
 ## Global Options
 
@@ -145,7 +145,7 @@ X11-specific:
 - `sleep`
 - scripts
 
-KWin has such functionality, but not exposed to the js API:
+KWin has such functionality, but it is not exposed to the js API:
 
 - `selectwindow`
 - `windowlower`

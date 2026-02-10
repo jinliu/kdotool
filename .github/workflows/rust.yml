@@ -2,25 +2,23 @@ name: Rust
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "main" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update \
-        && sudo apt-get install -y libdbus-1-dev
-    - name: Build
-      run: cargo build --verbose
-    # - name: Run tests
-    #   run: cargo test --verbose
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: APT Update
+        run: sudo apt-get update
+
+      - name: Install Dependencies
+        run: sudo apt-get install -y libdbus-1-dev
+
+      - name: Test
+        run: cargo +nightly test --verbose

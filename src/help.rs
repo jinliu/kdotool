@@ -14,6 +14,7 @@ USAGE:
 Options:
     -h, --help         Show this help
     -v, --version      Show program version
+    -q, --quiet        Don't print anything to stdout. Useful for scripting.
     -d, --debug        Enable debug output
     -n, --dry-run      Don't actually run the script. Just print it to stdout.
 
@@ -28,33 +29,35 @@ Window Query Commands:
         Search for windows with titles, names, or classes matching a regular
         expression pattern.
 
-        The default options are --name --class --classname --role (unless you
-        specify one or more of --name, --class, --classname, or --role).
+        The default options are --title --class --classname --role (unless you
+        specify one or more of --title, --class, --classname, or --role).
 
         OPTIONS:
-        --class
+        -C, --case-sensitive
+            Match against the window title case-sensitively.
+        -c, --class
             Match against the window class.
-        --classname
+        -n, --classname
             Match against the window classname.
-        --role
+        -r, --role
             Match against the window role.
-        --name
-            Match against the window name. This is the same string that is
+        -t, --title, --name
+            Match against the window title. This is the same string that is
             displayed in the window titlebar.
-        --pid PID
+        -p, --pid PID
             Match windows that belong to a specific process id. This may not
             work for some X applications that do not set this metadata on its
             windows.
-        --screen NUMBER (KDE 5 only)
+        -s, --screen NUMBER (KDE 5 only)
             Select windows only on a specific screen. Default is to search all
             screens.
-        --desktop NUMBER
+        -D, --desktop NUMBER
             Only match windows on a certain desktop. The default is to search
             all desktops.
-        --limit NUMBER
+        -l, --limit NUMBER
             Stop searching after finding NUMBER matching windows. The default
             is no search limit (which is equivalent to '--limit 0')
-        --all
+        -a, --all
             Require that all conditions be met.
         --any
             Match windows that match any condition (logically, 'or'). This is
