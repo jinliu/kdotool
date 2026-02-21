@@ -3,7 +3,7 @@ use std::io::Write;
 use std::sync::mpsc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use dbus::{
     blocking::{Connection, SyncConnection},
     channel::MatchingReceiver,
@@ -96,20 +96,26 @@ pub(crate) fn generate_script(globals: &Globals) -> anyhow::Result<String> {
     let render_context = handlebars::Context::wraps(globals)?;
 
     full_script.push_str(&reg.render_template_with_context(SCRIPT_HEADER, &render_context)?);
-    full_script.push_str(&reg.render_template_with_context(STEP_ACTIVE_WINDOW_INFO, &render_context)?);
+    full_script
+        .push_str(&reg.render_template_with_context(STEP_ACTIVE_WINDOW_INFO, &render_context)?);
     full_script.push_str(&reg.render_template_with_context(SCRIPT_FOOTER, &render_context)?);
 
     Ok(full_script)
 }
 
-pub(crate) fn run_script(script_contents: &str, context: &Globals, self_conn: SyncConnection) -> anyhow::Result<String> {
+pub(crate) fn run_script(
+    script_contents: &str,
+    context: &Globals,
+    self_conn: SyncConnection,
+) -> anyhow::Result<String> {
     enum ScriptMessage {
         Result(String),
         Error(String),
     }
 
     let kwin_conn = Connection::new_session()?;
-    let kwin_proxy = kwin_conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
+    let kwin_proxy =
+        kwin_conn.with_proxy("org.kde.KWin", "/Scripting", Duration::from_millis(5000));
 
     let (tx, rx) = mpsc::channel();
 
@@ -198,10 +204,9 @@ pub(crate) fn parse_active_window_info(payload: &str) -> anyhow::Result<ActiveWi
     // interpreting as a JSON string literal to unescape it.
     serde_json::from_str(payload)
         .or_else(|_| {
-            let unescaped: String = serde_json::from_str(payload)
-                .context("failed to unescape payload")?;
-            serde_json::from_str(&unescaped)
-                .context("failed to parse unescaped payload")
+            let unescaped: String =
+                serde_json::from_str(payload).context("failed to unescape payload")?;
+            serde_json::from_str(&unescaped).context("failed to parse unescaped payload")
         })
         .context("failed to parse active window info")
 }
