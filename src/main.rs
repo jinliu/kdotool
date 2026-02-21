@@ -521,7 +521,7 @@ fn step_search(
     let context = render_context.data().as_object().unwrap();
     let mut opt = Options {
         debug: context.get("debug").unwrap().as_bool().unwrap(),
-        kde5: context.get("debug").unwrap().as_bool().unwrap(),
+        kde5: context.get("kde5").unwrap().as_bool().unwrap(),
         ..Default::default()
     };
 
