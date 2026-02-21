@@ -66,10 +66,10 @@ fn get_active_window_info_impl() -> anyhow::Result<ActiveWindowInfo> {
         ..Default::default()
     };
 
-    if let Ok(version) = std::env::var("KDE_SESSION_VERSION") {
-        if version == "5" {
-            context.kde5 = true;
-        }
+    if let Ok(version) = std::env::var("KDE_SESSION_VERSION")
+        && version == "5"
+    {
+        context.kde5 = true;
     }
 
     let unique_suffix = SystemTime::now()
@@ -122,17 +122,17 @@ pub(crate) fn run_script(
     let _receiver = self_conn.start_receive(
         MatchRule::new_method_call(),
         Box::new(move |message, _connection| -> bool {
-            if let Some(member) = message.member() {
-                if let Some(arg) = message.get1::<String>() {
-                    match member.as_ref() {
-                        "result" => {
-                            let _ = tx.send(ScriptMessage::Result(arg));
-                        }
-                        "error" => {
-                            let _ = tx.send(ScriptMessage::Error(arg));
-                        }
-                        _ => {}
+            if let Some(member) = message.member()
+                && let Some(arg) = message.get1::<String>()
+            {
+                match member.as_ref() {
+                    "result" => {
+                        let _ = tx.send(ScriptMessage::Result(arg));
                     }
+                    "error" => {
+                        let _ = tx.send(ScriptMessage::Error(arg));
+                    }
+                    _ => {}
                 }
             }
             true

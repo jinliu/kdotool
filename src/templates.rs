@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Clippy only checks for usage in lib.rs, so this file is full of dead code warnings
+
 pub const SCRIPT_HEADER: &str = r#"
 {{#if debug}}
 print("{{{marker}}} START");
