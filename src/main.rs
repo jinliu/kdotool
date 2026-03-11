@@ -224,6 +224,96 @@ fn generate_step(
                         )?;
                     }
 
+                    "windowmaximize" => {
+                        let mut opt_vertical: Option<bool> = None;
+                        let mut opt_horizontal: Option<bool> = None;
+
+                        while let Some(arg) = parser.next()? {
+                            match arg {
+                                Long("vertical") => {
+                                    let value = parser.value()?.string()?.to_lowercase();
+
+                                    match value.as_str() {
+                                        "true" => {
+                                            opt_vertical = Some(true);
+                                        }
+                                        "false" => {
+                                            opt_vertical = Some(false);
+                                        }
+
+                                        _ => {
+                                            return Err(anyhow!(
+                                                "unsupported value for --vertical: '{value}'"
+                                            ));
+                                        }
+                                    }
+                                }
+                                Long("horizontal") => {
+                                    let value = parser.value()?.string()?.to_lowercase();
+
+                                    match value.as_str() {
+                                        "true" => {
+                                            opt_horizontal = Some(true);
+                                        }
+                                        "false" => {
+                                            opt_horizontal = Some(false);
+                                        }
+
+                                        _ => {
+                                            return Err(anyhow!(
+                                                "unsupported value for --horizontal: '{value}'"
+                                            ));
+                                        }
+                                    }
+                                }
+                                Value(val) if arg_window_id.is_none() => {
+                                    let s = val.string()?;
+                                    if let Some(id) = to_window_id(&s) {
+                                        arg_window_id = Some(id);
+                                    } else {
+                                        next_arg = Some(s);
+                                        break;
+                                    }
+                                }
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
+                                }
+                                _ => {
+                                    return Err(arg.unexpected().into());
+                                }
+                            }
+                        }
+
+                        if opt_vertical.is_none() && opt_horizontal.is_none() {
+                            return Err(anyhow!(
+                                "at least one option (--vertical or --horizontal) is required"
+                            ));
+                        }
+
+                        let mut render_context = render_context.clone();
+                        add_context(&mut render_context, "set_vertical", opt_vertical.is_some());
+                        add_context(
+                            &mut render_context,
+                            "vertical",
+                            opt_vertical.unwrap_or_default(),
+                        );
+                        add_context(
+                            &mut render_context,
+                            "set_horizontal",
+                            opt_horizontal.is_some(),
+                        );
+                        add_context(
+                            &mut render_context,
+                            "horizontal",
+                            opt_horizontal.unwrap_or_default(),
+                        );
+                        action_script = reg.render_template_with_context(
+                            WINDOW_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?;
+                    }
+
                     "windowmove" | "windowsize" => {
                         let mut opt_relative = false;
                         let mut arg_x: Option<String> = None;

@@ -48,6 +48,9 @@ The following can be used in chained commands:
 - `loadwindowstack _name_` Load a previously saved window stack
 - `getwindowid` Print the window id of a window in the window stack
 
+The following are new window actions:
+- `windowmaximize` Sets the maximized status of the window
+
 ## Supported xdotool Commands
 
 ### Window Queries

@@ -208,6 +208,12 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "getwindowid"           => "output_result(w.internalId);",
     "getwindowpid"          => "output_result(w.pid);",
     "windowminimize"        => "w.minimized = true;",
+    "windowmaximize"        => r#"
+            let maximize_vertical = {{#if set_vertical}}{{{vertical}}}{{else}}(w.maximizeMode & 1) == 1{{/if}};
+            let maximize_horizontal = {{#if set_horizontal}}{{{horizontal}}}{{else}}(w.maximizeMode & 2) == 2{{/if}};
+            output_debug(`Setting mode: ${maximize_vertical}, ${maximize_horizontal}`);
+            w.setMaximize(maximize_vertical, maximize_horizontal);
+"#,
     "windowraise"           => "workspace_raiseWindow(w);",
     "windowclose"           => "w.closeWindow();",
     "windowactivate"        => "workspace_setActiveWindow(w);",

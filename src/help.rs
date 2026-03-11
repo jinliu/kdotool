@@ -115,6 +115,18 @@ Window Action Commands:
     windowminimize [WINDOW]
         Minimize a window.
 
+    windowmaximize [--vertical bool] [--horizontal bool] [WINDOW]
+        Set a window's maximized state. At least one option is required;
+        specifying one but not the other leaves the other unchanged.
+
+        --vertical true/false
+            Set the window to be vertically maximized if true,
+            or not vertically maximized if false.
+
+        --horizontal true/false
+            Set the window to be horizontally maximized if true,
+            or not horizontally maximized if false.
+
     windowclose [WINDOW]
         Close a window.
 
