@@ -127,7 +127,7 @@ Window Action Commands:
 
     windowmove [--relative] [WINDOW] X Y
         Move a window. Percentages are valid for X and Y. They are relative to
-        relative to the geometry of the screen the window is on.
+        the geometry of the screen the window is on.
 
         If the given x coordinate is literally 'x', then the window's current
         x position will be unchanged. The same applies for 'y'.
