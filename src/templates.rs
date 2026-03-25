@@ -234,9 +234,7 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "windowstate"           => r#"
             let maximizeVert = (w.maximizeMode & 1) != 0;
             let maximizeHorz = (w.maximizeMode & 2) != 0;
-            output_debug(`Current maximize state: vert=${maximizeVert} horz=${maximizeHorz}`);
             {{{windowstate}}}
-            output_debug(`Current maximize state: vert=${maximizeVert} horz=${maximizeHorz}`);
             if (maximizeVert != ((w.maximizeMode & 1) != 0) || maximizeHorz != ((w.maximizeMode & 2) != 0)) {
                 w.setMaximize(maximizeVert, maximizeHorz);
             }
