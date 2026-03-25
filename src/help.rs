@@ -140,15 +140,15 @@ Window Action Commands:
 
         PROPERTY can be any of:
 
-        ABOVE - Show window above all others (always on top)
-        BELOW - Show window below all others
+        ABOVE - show window above all others (always on top)
+        BELOW - show window below all others
         SKIP_TASKBAR - hides the window from the taskbar
         SKIP_PAGER - hides the window from the window pager
         FULLSCREEN - makes window fullscreen
         SHADED - rolls the window up
         DEMANDS_ATTENTION - marks window urgent or needing attention
         NO_BORDER - window has no border
-        MINIMIZED - set minimized state, can toggle between minimize or maximize.
+        MINIMIZED - minimize the window
 
     get_desktop_for_window [WINDOW]
         Output the desktop number that a window is on.
