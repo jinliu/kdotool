@@ -231,7 +231,16 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
             {{#if y}}q.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
             w.frameGeometry = q;
 "#,
-    "windowstate"           => "{{{windowstate}}}",
+    "windowstate"           => r#"
+            let maximizeVert = (w.maximizeMode & 1) != 0;
+            let maximizeHorz = (w.maximizeMode & 2) != 0;
+            output_debug(`Current maximize state: vert=${maximizeVert} horz=${maximizeHorz}`);
+            {{{windowstate}}}
+            output_debug(`Current maximize state: vert=${maximizeVert} horz=${maximizeHorz}`);
+            if (maximizeVert != ((w.maximizeMode & 1) != 0) || maximizeHorz != ((w.maximizeMode & 2) != 0)) {
+                w.setMaximize(maximizeVert, maximizeHorz);
+            }
+"#,
     "get_desktop_for_window"=> "output_result(window_x11DesktopIds(w)[0]);",
     "set_desktop_for_window"=> "window_setX11DesktopId(w, {{{desktop_id}}});",
 };

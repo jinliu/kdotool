@@ -149,6 +149,13 @@ Window Action Commands:
         DEMANDS_ATTENTION - marks window urgent or needing attention
         NO_BORDER - window has no border
         MINIMIZED - minimize the window
+        MAXIMIZED_HORZ - maximize the window horizontally
+        MAXIMIZED_VERT - maximize the window vertically
+        MAXIMIZED - maximize the window both horizontally and vertically
+
+        NOTE: You can specify multiple --add, --remove, and --toggle options in a
+        single command. For example, you can do:
+          kdotool windowstate --add above --remove below --toggle skip_taskbar
 
     get_desktop_for_window [WINDOW]
         Output the desktop number that a window is on.

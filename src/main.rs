@@ -193,6 +193,35 @@ fn generate_step(
                                             _ => unreachable!(),
                                         };
                                         opt_windowstate.push_str(&js);
+                                    } else if key == "maximized_vert" {
+                                        let new_state = match option.as_str() {
+                                            "add" => "true",
+                                            "remove" => "false",
+                                            "toggle" => "!maximizeVert",
+                                            _ => unreachable!(),
+                                        };
+                                        let js = format!("maximizeVert = {new_state};");
+                                        opt_windowstate.push_str(&js);
+                                    } else if key == "maximized_horz" {
+                                        let new_state = match option.as_str() {
+                                            "add" => "true",
+                                            "remove" => "false",
+                                            "toggle" => "!maximizeHorz",
+                                            _ => unreachable!(),
+                                        };
+                                        let js = format!("maximizeHorz = {new_state};");
+                                        opt_windowstate.push_str(&js);
+                                    } else if key == "maximized" {
+                                        let new_state = match option.as_str() {
+                                            "add" => "true",
+                                            "remove" => "false",
+                                            "toggle" => "!(maximizeVert && maximizeHorz)",
+                                            _ => unreachable!(),
+                                        };
+                                        let js = format!(
+                                            "let t = {new_state}; maximizeVert = maximizeHorz = t; "
+                                        );
+                                        opt_windowstate.push_str(&js);
                                     } else {
                                         return Err(anyhow!("unsupported property '{key}'"));
                                     }
