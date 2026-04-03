@@ -684,13 +684,13 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    if !opt_remove && next_arg.is_none() || opt_help {
-        help();
+    if opt_version {
+        print_version();
         return Ok(());
     }
 
-    if opt_version {
-        print_version();
+    if !opt_remove && next_arg.is_none() || opt_help {
+        help();
         return Ok(());
     }
 
