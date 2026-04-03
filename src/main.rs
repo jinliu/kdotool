@@ -25,7 +25,6 @@ struct Globals {
     dbus_addr: String,
     cmdline: String,
     debug: bool,
-    kde5: bool,
     marker: String,
     script_name: String,
     shortcut: String,
@@ -109,7 +108,7 @@ fn generate_step(
     parser: &mut Parser,
     reg: &handlebars::Handlebars,
     render_context: &handlebars::Context,
-    globals: &Globals,
+    _globals: &Globals,
 ) -> anyhow::Result<StepResult> {
     use lexopt::prelude::*;
 
@@ -468,10 +467,6 @@ fn generate_step(
                     }
 
                     "getmouselocation" => {
-                        if globals.kde5 {
-                            return Err(anyhow!("'getmouselocation' is not supported in KDE 5"));
-                        }
-
                         let mut opt_shell = false;
                         while let Some(arg) = next_maybe_num(parser)? {
                             match arg {
@@ -529,7 +524,6 @@ fn step_search(
     #[derive(Default, Serialize)]
     struct Options {
         debug: bool,
-        kde5: bool,
         match_class: bool,
         match_classname: bool,
         match_role: bool,
@@ -539,8 +533,6 @@ fn step_search(
         pid: i32,
         match_desktop: bool,
         desktop: i32,
-        match_screen: bool,
-        screen: i32,
         limit: u32,
         match_all: bool,
         match_case: bool,
@@ -550,7 +542,6 @@ fn step_search(
     let context = render_context.data().as_object().unwrap();
     let mut opt = Options {
         debug: context.get("debug").unwrap().as_bool().unwrap(),
-        kde5: context.get("kde5").unwrap().as_bool().unwrap(),
         ..Default::default()
     };
 
@@ -582,10 +573,6 @@ fn step_search(
             Short('D') | Long("desktop") => {
                 opt.match_desktop = true;
                 opt.desktop = parser.value()?.parse()?;
-            }
-            Short('s') | Long("screen") => {
-                opt.match_screen = true;
-                opt.screen = parser.value()?.parse()?;
             }
             Short('l') | Long("limit") => {
                 opt.limit = parser.value()?.parse()?;
@@ -632,10 +619,10 @@ fn main() -> anyhow::Result<()> {
 
     let mut parser = Parser::from_env();
 
-    if let Ok(version) = std::env::var("KDE_SESSION_VERSION")
-        && version == "5"
-    {
-        context.kde5 = true;
+    if std::env::var("KDE_SESSION_VERSION") != Ok("6".to_string()) {
+        return Err(anyhow!(
+            "Unsupported KDE version. kdotool only supports KDE Plasma 6."
+        ));
     }
 
     // Parse global options
@@ -765,11 +752,7 @@ fn main() -> anyhow::Result<()> {
     log::debug!("===== Run script =====");
     let script_proxy = kwin_conn.with_proxy(
         "org.kde.KWin",
-        if context.kde5 {
-            format!("/{script_id}")
-        } else {
-            format!("/Scripting/Script{script_id}")
-        },
+        format!("/Scripting/Script{script_id}"),
         Duration::from_millis(5000),
     );
 

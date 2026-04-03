@@ -6,7 +6,7 @@ pub fn help() {
     print_version();
     print!(
         r#"
-kdotool is a xdotool-like window control utility for KDE 5 and 6.
+kdotool is a xdotool-like window control utility for KDE Plasma.
 
 USAGE:
     kdotool [OPTIONS] COMMAND [ARGS] [COMMAND [ARGS]]...
@@ -48,9 +48,6 @@ Window Query Commands:
             Match windows that belong to a specific process id. This may not
             work for some X applications that do not set this metadata on its
             windows.
-        -s, --screen NUMBER (KDE 5 only)
-            Select windows only on a specific screen. Default is to search all
-            screens.
         -D, --desktop NUMBER
             Only match windows on a certain desktop. The default is to search
             all desktops.
@@ -96,7 +93,7 @@ Window Action Commands:
 
     getwindowgeometry [WINDOW]
         Output the geometry (location and position) of a window. The values
-        include: x, y, width, height, and (KDE 5 only) screen number.
+        include: x, y, width, height.
 
     getwindowid [WINDOW]
         Output the ID of a window.
@@ -173,9 +170,6 @@ Global Commands:
 
     get_num_desktops
         Output the current number of desktops.
-
-    set_num_desktops <number> (KDE 5 only)
-        Change the number of desktops to <number>.
 "#
     );
 }

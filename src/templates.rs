@@ -27,25 +27,6 @@ function output_result(message) {
     callDBus("{{{dbus_addr}}}", "/", "", "result", message.toString());
 }
 
-{{#if kde5}}
-workspace_windowList                  = () => workspace.clientList();
-workspace_activeWindow                = () => workspace.activeClient;
-workspace_setActiveWindow             = (window) => { workspace.activeClient = window; };
-workspace_raiseWindow                 = (window) => { output_error("`windowraise` unsupported in KDE 5"); };
-workspace_currentDesktop              = () => workspace.currentDesktop;
-workspace_setCurrentDesktop           = (desktop) => { workspace.currentDesktop = desktop; };
-workspace_numDesktops                 = () => workspace.desktops;
-workspace_setNumDesktops              = (n) => { workspace.desktops = n };
-window_x11DesktopIds                  = (window) => window.x11DesktopIds;
-window_setX11DesktopId                = (window, id) => {
-    if (id == -2) {
-        output_error("`all` unsupported in KDE 5");
-    } else {
-         window.desktop = id;
-    }
-};
-window_screen                         = (window) => window.screen;
-{{else}}
 workspace_windowList                  = () => workspace.windowList();
 workspace_activeWindow                = () => workspace.activeWindow;
 workspace_setActiveWindow             = (window) => { workspace.activeWindow = window; };
@@ -60,7 +41,6 @@ workspace_setCurrentDesktop           = (id) => {
     }
 };
 workspace_numDesktops                 = () => workspace.desktops.length;
-workspace_setNumDesktops              = (n) => { output_error("`set_num_desktops` unsupported in KDE 6"); };
 window_x11DesktopIds                  = (window) => window.desktops.map((d) => d.x11DesktopNumber);
 window_setX11DesktopId                = (window, id) => {
     if (id == -1) {
@@ -76,8 +56,6 @@ window_setX11DesktopId                = (window, id) => {
         }
     }
 };
-window_screen                         = (window) => { output_error("`search --screen` unsupported in KDE 6"); };
-{{/if}}
 
 function run() {
     var window_stack = [];
@@ -134,9 +112,6 @@ pub const STEP_SEARCH: &str = r#"
         ) {
             {{#if match_desktop}}
             if (window_x11DesktopIds(w).indexOf({{{desktop}}}) < 0) continue;
-            {{/if}}
-            {{#if match_screen}}
-            if (window_screen(w) != {{{screen}}}) continue;
             {{/if}}
             window_stack.push(w);
             if ({{{limit}}} > 0 && window_stack.length >= {{{limit}}}) {
@@ -204,7 +179,7 @@ pub const STEP_LAST_OUTPUT: &str = r#"
 pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "getwindowname"         => "output_result(w.caption);",
     "getwindowclassname"    => "output_result(w.resourceClass);",
-    "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}{{#if kde5}} (screen: ${window_screen(w)}){{/if}}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
+    "getwindowgeometry"     => "output_result(`Window ${w.internalId}`); output_result(`  Position: ${w.x},${w.y}`); output_result(`  Geometry: ${w.width}x${w.height}`);",
     "getwindowid"           => "output_result(w.internalId);",
     "getwindowpid"          => "output_result(w.pid);",
     "windowminimize"        => "w.minimized = true;",
@@ -264,7 +239,6 @@ pub const GLOBAL_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
     "get_desktop"           => "output_result(workspace_currentDesktop());",
     "set_desktop"           => "workspace_setCurrentDesktop({{{n}}});",
     "get_num_desktops"      => "output_result(workspace_numDesktops());",
-    "set_num_desktops"      => "workspace_setNumDesktops({{{n}}})",
     "getmouselocation"      => r#"
         let p = workspace.cursorPos;
         let screen = workspace.screenAt(p);

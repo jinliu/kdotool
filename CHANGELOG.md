@@ -1,5 +1,9 @@
 # Change log
 
+## v0.3.0 (TBD)
+
+Support for KDE Plasma 5 was removed. (But you can still use v0.2.3 if you want.)
+
 ## v0.2.3 (2025-04-03)
 
 windowstate: add MAXIMIZED{_VERT|_HORZ} [(149595)](https://github.com/jinliu/kdotool/commit/149595d99ca9049d8c3a5251e3234c8a575c7b75)

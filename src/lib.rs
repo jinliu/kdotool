@@ -31,7 +31,6 @@ struct Globals {
     dbus_addr: String,
     cmdline: String,
     debug: bool,
-    kde5: bool,
     marker: String,
     script_name: String,
     shortcut: String,
@@ -66,10 +65,10 @@ fn get_active_window_info_impl() -> anyhow::Result<ActiveWindowInfo> {
         ..Default::default()
     };
 
-    if let Ok(version) = std::env::var("KDE_SESSION_VERSION")
-        && version == "5"
-    {
-        context.kde5 = true;
+    if std::env::var("KDE_SESSION_VERSION") != Ok("6".to_string()) {
+        return Err(anyhow!(
+            "Unsupported KDE version. kdotool only supports KDE Plasma 6."
+        ));
     }
 
     let unique_suffix = SystemTime::now()
@@ -157,11 +156,7 @@ pub(crate) fn run_script(
 
     let script_proxy = kwin_conn.with_proxy(
         "org.kde.KWin",
-        if context.kde5 {
-            format!("/{script_id}")
-        } else {
-            format!("/Scripting/Script{script_id}")
-        },
+        format!("/Scripting/Script{script_id}"),
         Duration::from_millis(5000),
     );
 

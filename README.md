@@ -1,4 +1,4 @@
-# kdotool - a `xdotool` clone for KDE Wayland
+# kdotool - a `xdotool` clone for KDE Plasma
 
 ## Introduction
 
@@ -12,9 +12,9 @@ This program uses KWin's scripting API to control windows. In each invocation,
 it generates a KWin script on-the-fly, loads it into KWin, runs it, and then
 deletes it, using KWin's DBus interface.
 
-This program should work with both KDE 5 and 6. It should work
-with both Wayland and X11 sessions. (But you can use the original `xdotool` in
-X11, anyway. So this is mainly for Wayland.)
+This program works with KDE Plasma 6. (Support for KDE Plasma 5 was removed in
+v0.3.0) It should work with both Wayland and X11 sessions. (But you can use the
+original `xdotool` in X11, anyway. So this is mainly for Wayland.)
 
 Not all `xdotool` commands are supported. Some are not available through the KWin
 API. Some might be not even possible in Wayland. See below for details.
@@ -59,8 +59,6 @@ These commands generate a window stack that following _window action_ commands c
     - `--maxdepth`
     - `--onlyvisible`
     - `--sync`
-  - NOTE:
-    - `--screen` (KDE 5 only)
 - `getactivewindow`
 - `getmouselocation [--shell]`
   - Window stack contains the topmost window under the mouse pointer.
@@ -74,7 +72,6 @@ These commands either take a window-id argument, or use the window stack.
 - `getwindowpid`
 - `getwindowgeometry`
   - MISSING: `--shell`
-  - NOTE: shows screen number only in KDE 5
 - `windowsize`
   - MISSING:
     - `--usehints`
@@ -84,7 +81,7 @@ These commands either take a window-id argument, or use the window stack.
     - `--sync`
 - `windowminimize`
   - MISSING: `--sync`
-- `windowraise` (KDE 6 only)
+- `windowraise`
   - Use `windowactivate` instead?
 - `windowactivate`
   - MISSING: `--sync`
@@ -117,7 +114,6 @@ These actions aren't targeting a specific window, but the whole desktop.
 - `set_desktop`
   - MISSING: --relative
 - `get_desktop`
-- `set_num_desktops` (KDE 5 only)
 - `get_num_desktops`
 
 ## Won't support
