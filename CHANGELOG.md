@@ -1,8 +1,16 @@
 # Change log
 
-## Next Release (TBD)
+## v0.2.3 (2025-04-03)
+
+windowstate: add MAXIMIZED{_VERT|_HORZ} [(149595)](https://github.com/jinliu/kdotool/commit/149595d99ca9049d8c3a5251e3234c8a575c7b75)
+
+gate CLI-only deps behind 'cli' feature flag 
+[(bdd184)](https://github.com/jinliu/kdotool/commit/bdd184dccf03e45ac24113db834cf8ac8ad09d8d)
+
+## v0.2.2 (2025-02-16)
 
 Added support for `no_border` to `windowstate`
+
 Added support for `minimized` to `windowstate`
 
 ## v0.2.1 (2023-11-23)
