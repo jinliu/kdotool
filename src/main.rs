@@ -757,20 +757,20 @@ fn main() -> anyhow::Result<()> {
     );
 
     // setup message receiver
+    let _receiver = self_conn.start_receive(
+        MatchRule::new_method_call(),
+        Box::new(|message, _connection| -> bool {
+            log::debug!("dbus message: {:?}", message);
+            if let Some(member) = message.member()
+                && let Some(arg) = message.get1()
+            {
+                let mut messages = MESSAGES.write().unwrap();
+                messages.push((member.to_string(), arg));
+            }
+            true
+        }),
+    );
     let _receiver_thread = std::thread::spawn(move || {
-        let _receiver = self_conn.start_receive(
-            MatchRule::new_method_call(),
-            Box::new(|message, _connection| -> bool {
-                log::debug!("dbus message: {:?}", message);
-                if let Some(member) = message.member()
-                    && let Some(arg) = message.get1()
-                {
-                    let mut messages = MESSAGES.write().unwrap();
-                    messages.push((member.to_string(), arg));
-                }
-                true
-            }),
-        );
         loop {
             self_conn.process(Duration::from_millis(1000)).unwrap();
         }
