@@ -118,7 +118,7 @@ These actions aren't targeting a specific window, but the whole desktop.
 
 ## Won't support
 
-You can use `ydotool`, `dotool`, `wtype`, etc. for these:
+You can use `ydotool`, `dotool`, etc. for these:
 
 - Keyboard commands
 - Mouse commands
