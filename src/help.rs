@@ -170,6 +170,16 @@ Global Commands:
 
     get_num_desktops
         Output the current number of desktops.
+
+    kwinscript --file <path> | --inline <code>
+        Run arbitrary KWin JavaScript code directly.
+        Useful for testing snippets or running scripts that don't fit
+        into kdotool's command syntax.
+
+        --file <path>     Read the script from a .js file
+        --inline <code>   Pass the script directly as a string argument
+
+        NOTE: The two options are mutually exclusive. You must supply one.
 "#
     );
 }

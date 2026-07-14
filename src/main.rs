@@ -722,7 +722,53 @@ fn main() -> anyhow::Result<()> {
         context.script_name.clone_from(&context.marker);
     }
 
-    let script_contents = generate_script(&context, parser, &next_arg.unwrap())?;
+    let script_contents = if next_arg.as_deref() == Some("kwinscript") {
+        use lexopt::prelude::*;
+
+        let mut file_path: Option<String> = None;
+        let mut inline: Option<String> = None;
+
+        while let Some(arg) = parser.next()? {
+            match arg {
+                Long("file") => {
+                    file_path = Some(parser.value()?.string()?);
+                }
+                Long("inline") => {
+                    inline = Some(parser.value()?.string()?);
+                }
+                _ => return Err(arg.unexpected().into()),
+            }
+        }
+
+        let body = match (file_path, inline) {
+            (Some(path), None) => std::fs::read_to_string(&path)
+                .with_context(|| format!("failed to read script file '{path}'"))?,
+            (None, Some(text)) => text,
+            (Some(_), Some(_)) => {
+                return Err(anyhow!("--file and --inline are mutually exclusive"));
+            }
+            (None, None) => return Err(anyhow!("supply either --file or --inline")),
+        };
+
+        // Render through the same template system so the user's script gets
+        // the helper functions (output_result, output_error, output_debug)
+        // and the D-Bus callbacks work correctly.
+        let mut reg = handlebars::Handlebars::new();
+        reg.set_strict_mode(true);
+        let render_context = handlebars::Context::wraps(&context)?;
+        let mut script = String::new();
+        script.push_str(&reg.render_template_with_context(SCRIPT_HEADER, &render_context)?);
+        script.push_str("    try {\n");
+        script.push_str("        ");
+        script.push_str(&body.replace('\n', "\n        "));
+        script.push_str("\n    } catch(e) {\n");
+        script.push_str("        output_error(\"Script error: \" + e.toString());\n");
+        script.push_str("    }\n");
+        script.push_str(&reg.render_template_with_context(SCRIPT_FOOTER, &render_context)?);
+        script
+    } else {
+        generate_script(&context, parser, &next_arg.unwrap())?
+    };
 
     log::debug!("Script:{script_contents}");
     script_file.write_all(script_contents.as_bytes())?;
