@@ -116,6 +116,26 @@ These actions aren't targeting a specific window, but the whole desktop.
 - `get_desktop`
 - `get_num_desktops`
 
+### Custom Scripts
+
+Use the `kwinscript` argument to run arbitrary KWin JavaScript code for
+cases where the built-in commands don't cover what you need.
+
+```
+kdotool kwinscript --file <path>
+kdotool kwinscript --inline <code>
+```
+
+The script runs with the same helper functions (`output_result`,
+`output_error`, `output_debug`) that kdotool's generated scripts use.
+Errors are caught and reported as usual.
+
+Example — set window opacity:
+
+```
+kdotool kwinscript --inline 'var w=workspace.activeWindow;if(w){w.opacity=0.5;output_result("50% opacity");}'
+```
+
 ## Won't support
 
 You can use `ydotool`, `dotool`, etc. for these:
@@ -139,7 +159,6 @@ X11-specific:
 - behave window action command
 - `exec`
 - `sleep`
-- scripts
 
 KWin has such functionality, but it is not exposed to the js API:
 
