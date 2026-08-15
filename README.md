@@ -170,6 +170,13 @@ KWin has such functionality, but it is not exposed to the js API:
 - `windowfocus`: use `windowactivate` instead?
 - `set_window`
 
+## Completion
+
+```sh
+install -Dm644 completions/kdotool.bash \
+  "${BASH_COMPLETION_USER_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion}/completions/kdotool.bash"
+```
+
 ## Troubleshooting
 
 If anything fails to work, you can re-run the command with `--debug` option.
