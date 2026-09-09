@@ -9,15 +9,11 @@ use help::*;
 
 use std::io::Write;
 use std::process::Command;
-use std::sync::RwLock;
-use std::time::Duration;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, anyhow};
-use dbus::{
-    blocking::{Connection, SyncConnection},
-    channel::MatchingReceiver,
-    message::MatchRule,
-};
+use dbus::{blocking::Connection, channel::MatchingReceiver, message::MatchRule};
 use serde::Serialize;
 
 #[derive(Default, Serialize)]
@@ -35,8 +31,6 @@ struct StepResult {
     is_query: bool,
     next_arg: Option<String>,
 }
-
-static MESSAGES: RwLock<Vec<(String, String)>> = RwLock::new(vec![]);
 
 fn add_context<T>(render_context: &mut handlebars::Context, key: &str, value: T)
 where
@@ -166,8 +160,7 @@ fn generate_step(
             if WINDOW_ACTIONS.contains_key(command) {
                 let mut arg_window_id: Option<String> = None;
 
-                let action_script;
-                match command {
+                let action_script = match command {
                     "windowstate" => {
                         let mut opt_windowstate = String::new();
 
@@ -246,10 +239,10 @@ fn generate_step(
 
                         let mut render_context = render_context.clone();
                         add_context(&mut render_context, "windowstate", opt_windowstate);
-                        action_script = reg.render_template_with_context(
+                        reg.render_template_with_context(
                             WINDOW_ACTIONS.get(command).unwrap(),
                             &render_context,
-                        )?;
+                        )?
                     }
 
                     "windowmove" | "windowsize" => {
@@ -327,10 +320,10 @@ fn generate_step(
                         add_context(&mut render_context, "y", y);
                         add_context(&mut render_context, "x_percent", x_percent);
                         add_context(&mut render_context, "y_percent", y_percent);
-                        action_script = reg.render_template_with_context(
+                        reg.render_template_with_context(
                             WINDOW_ACTIONS.get(command).unwrap(),
                             &render_context,
-                        )?;
+                        )?
                     }
 
                     "set_desktop_for_window" => {
@@ -379,10 +372,10 @@ fn generate_step(
                         };
                         let mut render_context = render_context.clone();
                         add_context(&mut render_context, "desktop_id", desktop_id);
-                        action_script = reg.render_template_with_context(
+                        reg.render_template_with_context(
                             WINDOW_ACTIONS.get(command).unwrap(),
                             &render_context,
-                        )?;
+                        )?
                     }
 
                     _ => {
@@ -406,10 +399,10 @@ fn generate_step(
                                 }
                             }
                         }
-                        action_script = reg.render_template_with_context(
+                        reg.render_template_with_context(
                             WINDOW_ACTIONS.get(command).unwrap(),
                             &render_context,
-                        )?;
+                        )?
                     }
                 };
 
@@ -707,7 +700,7 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let self_conn = SyncConnection::new_session()?;
+    let self_conn = Connection::new_session()?;
     context.dbus_addr = self_conn.unique_name().to_string();
 
     log::debug!("===== Generate KWin script =====");
@@ -802,31 +795,51 @@ fn main() -> anyhow::Result<()> {
         Duration::from_millis(5000),
     );
 
-    // setup message receiver
-    let _receiver_thread = std::thread::spawn(move || {
-        let _receiver = self_conn.start_receive(
-            MatchRule::new_method_call(),
-            Box::new(|message, _connection| -> bool {
-                log::debug!("dbus message: {:?}", message);
-                if let Some(member) = message.member()
-                    && let Some(arg) = message.get1()
-                {
-                    let mut messages = MESSAGES.write().unwrap();
-                    messages.push((member.to_string(), arg));
-                }
-                true
-            }),
-        );
-        loop {
-            self_conn.process(Duration::from_millis(1000)).unwrap();
-        }
-        //FIXME: shut down this thread when the script is finished
-    });
+    let (tx, rx) = mpsc::channel();
+    let _receiver = self_conn.start_receive(
+        MatchRule::new_method_call(),
+        Box::new(move |message, connection| -> bool {
+            log::debug!("dbus message: {:?}", message);
+            if let Some(member) = message.member()
+                && let Some(arg) = message.get1::<String>()
+            {
+                let _ = tx.send((member.to_string(), arg));
+                let _ = connection.channel().send(message.method_return());
+            }
+            true
+        }),
+    );
 
     let start_time = chrono::Local::now();
-    let _: () = script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
-    if context.shortcut.is_empty() {
-        let _: () = script_proxy.method_call("org.kde.kwin.Script", "stop", ())?;
+    let mut messages = Vec::new();
+    let result = (|| -> anyhow::Result<()> {
+        let _: () = script_proxy.method_call("org.kde.kwin.Script", "run", ())?;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        // The run() reply is on a different connection from the results. Wait
+        // for a marker on the results connection before stopping the script.
+        loop {
+            for (member, arg) in rx.try_iter() {
+                if member == "finished" && arg == context.marker {
+                    return Ok(());
+                }
+                messages.push((member, arg));
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(anyhow!("Timed out waiting for KWin script completion"));
+            }
+            self_conn.process(remaining)?;
+        }
+    })();
+    // Keep successfully registered shortcuts loaded, but clean up failed runs.
+    if context.shortcut.is_empty() || result.is_err() {
+        let cleanup: Result<(), _> = kwin_proxy.method_call(
+            "org.kde.kwin.Scripting",
+            "unloadScript",
+            (&context.script_name,),
+        );
+        result?;
+        cleanup?;
     }
 
     if context.debug {
@@ -852,7 +865,6 @@ fn main() -> anyhow::Result<()> {
 
     log::debug!("===== Output =====");
     let mut errors = 0;
-    let messages = MESSAGES.read().unwrap();
     for (msgtype, message) in messages.iter() {
         if msgtype == "error" {
             errors += 1;
