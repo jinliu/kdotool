@@ -890,3 +890,28 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn search_uses_topmost_order_before_limit_and_supports_chaining() {
+        let script = generate_script(
+            &Globals::default(),
+            Parser::from_args(["--class", "code", "--limit", "1", "windowactivate"]),
+            "search",
+        )
+        .unwrap();
+        let order = script
+            .find("var t = workspace.stackingOrder.slice().reverse();")
+            .unwrap();
+        let search = script.find("for (var i=0; i<t.length; i++)").unwrap();
+        let limit = script
+            .find("if (1 > 0 && window_stack.length >= 1)")
+            .unwrap();
+        assert!(order < search && search < limit);
+        assert!(!script.contains("t.sort("));
+        assert!(script.contains("workspace_setActiveWindow(w);"));
+    }
+}

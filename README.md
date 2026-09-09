@@ -63,6 +63,13 @@ These commands generate a window stack that following _window action_ commands c
 - `getmouselocation [--shell]`
   - Window stack contains the topmost window under the mouse pointer.
 
+`search` returns matches in visual stacking order, topmost first.
+Combine it with `--limit 1` to select the topmost matching window:
+
+```sh
+kdotool search --class code --limit 1 windowactivate
+```
+
 ### Window Actions
 
 These commands either take a window-id argument, or use the window stack.

@@ -27,7 +27,7 @@ Options:
 Window Query Commands:
     search [OPTIONS] PATTERN    
         Search for windows with titles, names, or classes matching a regular
-        expression pattern.
+        expression pattern. Results are in stacking order, topmost first.
 
         The default options are --title --class --classname --role (unless you
         specify one or more of --title, --class, --classname, or --role).

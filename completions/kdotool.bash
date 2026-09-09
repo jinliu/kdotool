@@ -71,4 +71,3 @@ _kdotool() {
 }
 
 complete -F _kdotool kdotool
-
