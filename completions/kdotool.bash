@@ -41,6 +41,7 @@ _kdotool() {
           -p --pid
           -D --desktop
           -l --limit
+          --topmost
           -a --all --any
         ' -- "$cur"))
         ;;
@@ -71,4 +72,3 @@ _kdotool() {
 }
 
 complete -F _kdotool kdotool
-

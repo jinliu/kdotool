@@ -54,6 +54,9 @@ Window Query Commands:
         -l, --limit NUMBER
             Stop searching after finding NUMBER matching windows. The default
             is no search limit (which is equivalent to '--limit 0')
+        --topmost
+            Search in stacking order, topmost first, before applying --limit.
+            This is visual stacking order, not focus history.
         -a, --all
             Require that all conditions be met.
         --any
