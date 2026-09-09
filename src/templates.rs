@@ -67,12 +67,17 @@ pub const SCRIPT_FOOTER: &str = r#"
 {{#if shortcut}}
 registerShortcut("{{#if script_name}}{{{script_name}}}{{else}}{{{marker}}}{{/if}}", "{{#if script_name}}{{{script_name}}}{{else}}{{{cmdline}}}{{/if}}", "{{{shortcut}}}", run);
 {{else}}
-run();
+try {
+    run();
+} catch (e) {
+    output_error("Script error: " + e.toString());
+}
 {{/if}}
 
 {{#if debug}}
 print("{{{marker}}} FINISH");
 {{/if}}
+callDBus("{{{dbus_addr}}}", "/", "", "finished", "{{{marker}}}");
 "#;
 
 pub const STEP_SEARCH: &str = r#"
