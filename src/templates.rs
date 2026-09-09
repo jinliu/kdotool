@@ -85,10 +85,8 @@ pub const STEP_SEARCH: &str = r#"
     const match_case = {{{match_case}}};
     const re_opts = (match_case ? "" : "i");
     const re = new RegExp(String.raw`{{{search_term}}}`, re_opts);
-    var t = workspace_windowList();
-    {{#if topmost}}
-    t.sort((a, b) => b.stackingOrder - a.stackingOrder);
-    {{/if}}
+    // KWin exposes a read-only, bottom-to-top sequence. Copy before reversing.
+    var t = workspace.stackingOrder.slice().reverse();
     window_stack = [];
     for (var i=0; i<t.length; i++) {
         let w = t[i];

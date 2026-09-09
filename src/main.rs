@@ -527,7 +527,6 @@ fn step_search(
         match_desktop: bool,
         desktop: i32,
         limit: u32,
-        topmost: bool,
         match_all: bool,
         match_case: bool,
         search_term: String,
@@ -570,9 +569,6 @@ fn step_search(
             }
             Short('l') | Long("limit") => {
                 opt.limit = parser.value()?.parse()?;
-            }
-            Long("topmost") => {
-                opt.topmost = true;
             }
             Short('a') | Long("all") => {
                 opt.match_all = true;
@@ -900,48 +896,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn search_preserves_default_order() {
+    fn search_uses_topmost_order_before_limit_and_supports_chaining() {
         let script = generate_script(
             &Globals::default(),
-            Parser::from_args(["--class", "code", "--limit", "1"]),
+            Parser::from_args(["--class", "code", "--limit", "1", "windowactivate"]),
             "search",
         )
         .unwrap();
-        assert!(script.contains("var t = workspace_windowList();"));
+        let order = script
+            .find("var t = workspace.stackingOrder.slice().reverse();")
+            .unwrap();
+        let search = script.find("for (var i=0; i<t.length; i++)").unwrap();
+        let limit = script
+            .find("if (1 > 0 && window_stack.length >= 1)")
+            .unwrap();
+        assert!(order < search && search < limit);
         assert!(!script.contains("t.sort("));
-    }
-
-    #[test]
-    fn topmost_sorts_before_searching_and_supports_chaining() {
-        for args in [
-            [
-                "--topmost",
-                "--class",
-                "code",
-                "--limit",
-                "1",
-                "windowactivate",
-            ],
-            [
-                "--class",
-                "code",
-                "--limit",
-                "1",
-                "--topmost",
-                "windowactivate",
-            ],
-        ] {
-            let script =
-                generate_script(&Globals::default(), Parser::from_args(args), "search").unwrap();
-            let sort = script
-                .find("t.sort((a, b) => b.stackingOrder - a.stackingOrder);")
-                .unwrap();
-            let search = script.find("for (var i=0; i<t.length; i++)").unwrap();
-            let limit = script
-                .find("if (1 > 0 && window_stack.length >= 1)")
-                .unwrap();
-            assert!(sort < search && search < limit);
-            assert!(script.contains("workspace_setActiveWindow(w);"));
-        }
+        assert!(script.contains("workspace_setActiveWindow(w);"));
     }
 }

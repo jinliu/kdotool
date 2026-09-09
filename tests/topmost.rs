@@ -5,16 +5,18 @@ use std::process::Command;
 #[test]
 #[ignore = "requires a KDE Plasma 6 session; does not activate windows"]
 fn topmost_matches_stacking_order_before_applying_limit() {
-    // Use KWin's ordered list as an independent reference for the per-window
-    // stackingOrder sort. Restrict it to the same candidates as normal search.
+    // Walk KWin's stack backwards as a reference, without mutating the
+    // read-only Qt sequence or using the search implementation's reverse().
     let output = Command::new(env!("CARGO_BIN_EXE_kdotool"))
         .args([
             "kwinscript",
             "--inline",
-            "const candidates = workspace.windowList();
-             output_result(JSON.stringify(workspace.stackingOrder
-                 .filter(w => candidates.includes(w)).reverse()
-                 .map(w => w.internalId.toString())));",
+            "const stack = workspace.stackingOrder;
+             const ids = [];
+             for (let i = stack.length - 1; i >= 0; --i) {
+                 ids.push(stack[i].internalId.toString());
+             }
+             output_result(JSON.stringify(ids));",
         ])
         .output()
         .unwrap();
@@ -24,14 +26,7 @@ fn topmost_matches_stacking_order_before_applying_limit() {
 
     for limit in [0, 1, 2] {
         let output = Command::new(env!("CARGO_BIN_EXE_kdotool"))
-            .args([
-                "search",
-                "--class",
-                "^.*$",
-                "--topmost",
-                "--limit",
-                &limit.to_string(),
-            ])
+            .args(["search", "--class", "^.*$", "--limit", &limit.to_string()])
             .output()
             .unwrap();
         assert!(output.status.success(), "{output:?}");
@@ -46,15 +41,7 @@ fn topmost_matches_stacking_order_before_applying_limit() {
     }
 
     let output = Command::new(env!("CARGO_BIN_EXE_kdotool"))
-        .args([
-            "search",
-            "--class",
-            "a^",
-            "--topmost",
-            "--limit",
-            "1",
-            "windowactivate",
-        ])
+        .args(["search", "--class", "a^", "--limit", "1", "windowactivate"])
         .output()
         .unwrap();
     assert!(output.status.success(), "{output:?}");

@@ -41,7 +41,6 @@ _kdotool() {
           -p --pid
           -D --desktop
           -l --limit
-          --topmost
           -a --all --any
         ' -- "$cur"))
         ;;

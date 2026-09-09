@@ -27,7 +27,7 @@ Options:
 Window Query Commands:
     search [OPTIONS] PATTERN    
         Search for windows with titles, names, or classes matching a regular
-        expression pattern.
+        expression pattern. Results are in stacking order, topmost first.
 
         The default options are --title --class --classname --role (unless you
         specify one or more of --title, --class, --classname, or --role).
@@ -54,9 +54,6 @@ Window Query Commands:
         -l, --limit NUMBER
             Stop searching after finding NUMBER matching windows. The default
             is no search limit (which is equivalent to '--limit 0')
-        --topmost
-            Search in stacking order, topmost first, before applying --limit.
-            This is visual stacking order, not focus history.
         -a, --all
             Require that all conditions be met.
         --any
