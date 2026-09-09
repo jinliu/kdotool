@@ -2,6 +2,12 @@
 
 ## v0.3.0 (TBD)
 
+Bugfix: search result randomly lost due to race conditions in DBus handling.
+
+Add bash completion
+
+Add `kwinscript` subcommand for running arbitrary KWin scripts.
+
 Support for KDE Plasma 5 was removed. (But you can still use v0.2.3 if you want.)
 
 ## v0.2.3 (2025-04-03)
