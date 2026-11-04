@@ -8,6 +8,9 @@ Add bash completion
 
 Add `kwinscript` subcommand for running arbitrary KWin scripts.
 
+Add `setwindowgeometry` command: move/resize with X11 geometry syntax, including
+offsets from the right/bottom screen edge (`800x600-0-0`). [(#56)](https://github.com/jinliu/kdotool/issues/56)
+
 Support for KDE Plasma 5 was removed. (But you can still use v0.2.3 if you want.)
 
 ## v0.2.3 (2025-04-03)

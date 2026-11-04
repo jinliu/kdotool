@@ -211,6 +211,19 @@ pub const WINDOW_ACTIONS: phf::Map<&'static str, &'static str> = phf::phf_map! {
             {{#if y}}q.y={{#if relative}}w.y+{{/if}}{{{y}}};{{/if}}
             w.frameGeometry = q;
 "#,
+    "setwindowgeometry"     => r#"
+            output_debug(`Window: ${w.frameGeometry}`);
+            // Offsets are relative to the screen the window is on.
+            const out = (w.output && w.output.geometry) ? w.output.geometry
+                : {x: 0, y: 0, width: workspace.virtualScreenSize.width, height: workspace.virtualScreenSize.height};
+            output_debug(`Screen: ${out.x},${out.y} ${out.width}x${out.height}`);
+            let q = Object.assign({}, w.frameGeometry);
+            {{#if width}}q.width={{{width}}};{{/if}}
+            {{#if height}}q.height={{{height}}};{{/if}}
+            {{#if x}}q.x={{#if x_from_right}}out.x+out.width-q.width-{{{x}}}{{else}}out.x+{{{x}}}{{/if}};{{/if}}
+            {{#if y}}q.y={{#if y_from_bottom}}out.y+out.height-q.height-{{{y}}}{{else}}out.y+{{{y}}}{{/if}};{{/if}}
+            w.frameGeometry = q;
+"#,
     "windowstate"           => r#"
             let maximizeVert = (w.maximizeMode & 1) != 0;
             let maximizeHorz = (w.maximizeMode & 2) != 0;

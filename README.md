@@ -47,6 +47,11 @@ The following can be used in chained commands:
 - `savewindowstack _name_` Save the current window stack to a variable
 - `loadwindowstack _name_` Load a previously saved window stack
 - `getwindowid` Print the window id of a window in the window stack
+- `setwindowgeometry _geometry_` Move and/or resize a window with X11
+  `-geometry` syntax: `[WIDTHxHEIGHT][{+-}X{+-}Y]`. Offsets are relative to the
+  screen the window is on, and `-` offsets count from the right/bottom edge:
+  `kdotool getactivewindow setwindowgeometry 800x600-0-0` puts the active
+  window in the bottom-right corner at 800x600.
 
 ## Supported xdotool Commands
 

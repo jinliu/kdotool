@@ -326,6 +326,56 @@ fn generate_step(
                         )?
                     }
 
+                    "setwindowgeometry" => {
+                        let mut arg_geometry: Option<String> = None;
+                        while let Some(arg) = next_maybe_num(parser)? {
+                            match arg {
+                                Value(val) if arg_window_id.is_none() && arg_geometry.is_none() => {
+                                    let s = val.string()?;
+                                    if let Some(id) = to_window_id(&s) {
+                                        arg_window_id = Some(id);
+                                    } else {
+                                        arg_geometry = Some(s);
+                                    }
+                                }
+                                Value(val) if arg_geometry.is_none() => {
+                                    arg_geometry = Some(val.string()?);
+                                }
+                                Value(val) => {
+                                    next_arg = Some(val.string()?);
+                                    break;
+                                }
+                                _ => {
+                                    return Err(arg.unexpected().into());
+                                }
+                            }
+                        }
+                        let geometry = parse_geometry(
+                            &arg_geometry.ok_or_else(|| anyhow!("missing argument 'geometry'"))?,
+                        )?;
+                        // Strings, so that a 0 offset still renders ({{#if}} treats "0" as set).
+                        let s = |v: Option<u32>| v.map(|n| n.to_string()).unwrap_or_default();
+                        let mut render_context = render_context.clone();
+                        add_context(&mut render_context, "width", s(geometry.width));
+                        add_context(&mut render_context, "height", s(geometry.height));
+                        add_context(&mut render_context, "x", s(geometry.x.map(|(n, _)| n)));
+                        add_context(
+                            &mut render_context,
+                            "x_from_right",
+                            geometry.x.is_some_and(|(_, neg)| neg),
+                        );
+                        add_context(&mut render_context, "y", s(geometry.y.map(|(n, _)| n)));
+                        add_context(
+                            &mut render_context,
+                            "y_from_bottom",
+                            geometry.y.is_some_and(|(_, neg)| neg),
+                        );
+                        reg.render_template_with_context(
+                            WINDOW_ACTIONS.get(command).unwrap(),
+                            &render_context,
+                        )?
+                    }
+
                     "set_desktop_for_window" => {
                         let mut arg_desktop_id: Option<String> = None;
                         while let Some(arg) = next_maybe_num(parser)? {
