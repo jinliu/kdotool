@@ -132,6 +132,15 @@ Window Action Commands:
         --relative
             Make movement relative to the current window position.
     
+    setwindowgeometry [WINDOW] GEOMETRY
+        Move and/or resize a window using X11 geometry syntax:
+        [WIDTHxHEIGHT][{{+-}}X{{+-}}Y]. Offsets are relative to the screen the
+        window is on. A '-' offset is measured from the right/bottom edge of
+        the screen to the right/bottom edge of the window, so '-0-0' puts the
+        window in the bottom-right corner.
+
+        Examples: 800x600, +100+50, -0-0, 500x300-100-100, 1024x768+50-100
+
     windowstate [--add PROPERTY] [--remove PROPERTY] [--toggle PROPERTY] [WINDOW]
         Change a property on a window.
 

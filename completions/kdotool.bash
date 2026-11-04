@@ -8,7 +8,7 @@ _kdotool() {
     search getactivewindow getmouselocation
     getwindowname getwindowclassname getwindowgeometry getwindowid
     getwindowpid windowactivate windowraise windowminimize windowclose
-    windowsize windowmove windowstate
+    windowsize windowmove setwindowgeometry windowstate
     get_desktop_for_window set_desktop_for_window
     get_desktop set_desktop get_num_desktops
     savewindowstack loadwindowstack kwinscript
